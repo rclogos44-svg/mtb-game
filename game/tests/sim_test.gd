@@ -14,7 +14,7 @@ func check(name: String, ok: bool, detail: String) -> void:
 		fails += 1
 
 
-func pilot(_b, _t) -> Dictionary:
+func pilot(_b, _t: float) -> Dictionary:
 	match phase:
 		"pedal":
 			return {"pedal": 1.0}
@@ -26,6 +26,11 @@ func pilot(_b, _t) -> Dictionary:
 			return {"pedal": 1.0}
 		"turnbrake":
 			return {"steer": 0.5, "brake": 0.7}
+		"wild":
+			var k := int(_t * 2.5)
+			return {"pedal": 1.0, "steer": 1.0 if k % 2 == 0 else -1.0, "hop": int(_t * 1.3) % 3 == 0}
+		"steerstill":
+			return {"steer": 1.0}
 		"hopload":
 			return {"hop": true}
 	return {}
@@ -133,6 +138,49 @@ func _run(main) -> void:
 		await physics_frame
 		vmax = maxf(vmax, bike.linear_velocity.length())
 	check("hitting a wall doesn't launch the bike", vmax < 9.0, "max speed %.1f m/s" % vmax)
+
+	# hard, jerky steering with repeated hops (open ground): no wild tumbling
+	phase = "wild"
+	bike.reset_bike(Transform3D(Basis(), Vector3(120.0, 0.05, 0.0)))
+	await wait(0.05)
+	var max_twist := 0.0
+	var flips := 0
+	var was_flipped := false
+	for i in int(8.0 * Engine.physics_ticks_per_second):
+		await physics_frame
+		var wl := bike.global_transform.basis.inverse() * bike.angular_velocity
+		max_twist = maxf(max_twist, maxf(absf(wl.y), absf(wl.z)))
+		var flipped := bike.global_transform.basis.y.dot(Vector3.UP) < 0.3
+		if flipped and not was_flipped:
+			flips += 1
+		was_flipped = flipped
+	check("jerky steering + hops: no tumbling", flips == 0 and max_twist <= 5.01, "flips %d, max roll/yaw rate %.1f rad/s" % [flips, max_twist])
+
+	# hands follow the bars when steering
+	phase = "settle"
+	bike.reset_bike(Transform3D(Basis(), Vector3(-80, 0.05, -80)))
+	await wait(1.0)
+	var vis = bike.get_node("Visual")
+	var grip_err := func() -> float:
+		var steer: Node3D = vis.parts["Steer"]
+		var D: Transform3D = steer.transform * (vis.rest["Steer"] as Transform3D).affine_inverse()
+		var g: Array = bike.geo["grip"]
+		var worst := 0.0
+		for s in [1, -1]:
+			var grip := D * Vector3(0.322 * s, g[1], -g[0])
+			var hb: int = vis.skel.find_bone("hand." + ("R" if s == 1 else "L"))
+			var wrist: Vector3 = vis.skel.get_bone_global_pose(hb).origin
+			worst = maxf(worst, wrist.distance_to(grip))
+		return worst
+	await process_frame
+	var e_straight: float = grip_err.call()
+	phase = "steerstill"
+	await wait(1.0)
+	await process_frame
+	await process_frame
+	var e_turned: float = grip_err.call()
+	check("hands stay on the grips when steering", absf(e_turned - e_straight) < 0.01 and absf(bike.steer_angle) > 0.4,
+		"steer %.0f deg, wrist-to-grip %.3f m straight vs %.3f m turned" % [rad_to_deg(bike.steer_angle), e_straight, e_turned])
 
 	print("RESULT: %s (%d failed)" % ["OK" if fails == 0 else "FAILED", fails])
 	quit(1 if fails else 0)

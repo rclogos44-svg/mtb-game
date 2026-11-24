@@ -33,6 +33,13 @@ const GRAV := 9.81
 @export var lean_stiffness := 2600.0
 @export var lean_damping := 330.0
 @export var rider_pitch_damping := 160.0
+@export_group("Air")
+@export var air_roll_stiffness := 450.0
+@export var air_roll_damping := 90.0
+@export var air_yaw_damping := 30.0
+@export var air_pitch_damping := 12.0
+## A rider can't spin the bike faster than this about its roll / yaw axes (rad/s).
+@export var max_twist_rate := 5.0
 
 var geo: Dictionary
 var linkage: RearLinkage
@@ -197,10 +204,14 @@ func _physics_process(dt: float) -> void:
 	weight_back = move_toward(weight_back, in_brake * clampf(linear_velocity.length() / 3.0, 0.0, 1.0), 3.0 * dt)
 	# (centre of mass kept fixed: moving it at runtime destabilises the solver)
 	var grounded := rear.contact or front.contact
+	var both := rear.contact and front.contact
 	if grounded:
-		_lean_assist(up_b, fwd_b)
+		# on one wheel the lone tyre can't hold a full lean, so ease off
+		_lean_assist(up_b, fwd_b, 1.0 if both else 0.35)
 		# the rider's arms and legs soak up fast pitching (braking dive, landings)
 		apply_torque(right_b * (-angular_velocity.dot(right_b) * rider_pitch_damping))
+	else:
+		_air_control(up_b, fwd_b, right_b)
 	# aerodynamic drag (rider + bike CdA ~0.55 m^2)
 	var v := linear_velocity
 	apply_central_force(-0.5 * 1.2 * 0.55 * v.length() * v)
@@ -311,7 +322,17 @@ func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vec
 	w.spin += w.omega * dt
 
 
-func _lean_assist(up_b: Vector3, fwd_b: Vector3) -> void:
+## In the air the rider keeps the bike level and stops it twisting; pitch is
+## left mostly free (that's where flips will come from).
+func _air_control(up_b: Vector3, fwd_b: Vector3, right_b: Vector3) -> void:
+	var level_err := up_b.cross(Vector3.UP).dot(fwd_b)
+	var w := angular_velocity
+	apply_torque(fwd_b * (air_roll_stiffness * level_err - air_roll_damping * w.dot(fwd_b)))
+	apply_torque(up_b * (-air_yaw_damping * w.dot(up_b)))
+	apply_torque(right_b * (-air_pitch_damping * w.dot(right_b)))
+
+
+func _lean_assist(up_b: Vector3, fwd_b: Vector3, strength := 1.0) -> void:
 	## Holds the bike at the lean a real rider would use for the current turn.
 	var v := linear_velocity
 	var v_h := Vector3(v.x, 0.0, v.z)
@@ -320,7 +341,7 @@ func _lean_assist(up_b: Vector3, fwd_b: Vector3) -> void:
 	var target_up := (Vector3.UP * GRAV + a_c).normalized()
 	var err := up_b.cross(target_up).dot(fwd_b)
 	var roll_rate := angular_velocity.dot(fwd_b)
-	apply_torque(fwd_b * (lean_stiffness * err - lean_damping * roll_rate))
+	apply_torque(fwd_b * strength * (lean_stiffness * err - lean_damping * roll_rate))
 
 
 func _hop(grounded: bool, up_b: Vector3, fwd_b: Vector3, com_g: Vector3, dt: float) -> void:
@@ -365,6 +386,14 @@ func reset_bike(xform := Transform3D()) -> void:
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	# cap roll and yaw spin (pitch stays free for flips)
+	var bas := state.transform.basis
+	var wl := bas.inverse() * state.angular_velocity
+	var lim := max_twist_rate
+	if absf(wl.y) > lim or absf(wl.z) > lim:
+		wl.y = clampf(wl.y, -lim, lim)
+		wl.z = clampf(wl.z, -lim, lim)
+		state.angular_velocity = bas * wl
 	if _reset_pending:
 		state.transform = spawn_xform
 		state.linear_velocity = Vector3.ZERO

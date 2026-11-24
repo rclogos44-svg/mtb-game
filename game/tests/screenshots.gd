@@ -9,6 +9,8 @@ var phase := "pedal"
 func pilot(_b, t) -> Dictionary:
 	if phase == "pedal":
 		return {"pedal": 0.7, "steer": 0.15 * sin(t * 0.8)}
+	if phase == "steer":
+		return {"steer": 1.0}
 	if phase == "compress":
 		return {"hop": true}
 	return {}
@@ -56,4 +58,12 @@ func _run(main) -> void:
 	cam.dist = 2.6
 	await frames(120)
 	await snap("orbit_front")
+	phase = "steer"
+	bike.reset_bike(Transform3D(Basis(), Vector3(-60, 0.05, 60)))
+	cam.mode = 2
+	cam.yaw = 2.6
+	cam.pitch = -0.35
+	cam.dist = 2.2
+	await frames(120)
+	await snap("steer_hands")
 	quit()
