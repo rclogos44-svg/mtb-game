@@ -59,6 +59,24 @@ blender -b -P build_rider.py        # -> game/assets/rider.glb (+ pedalling anim
 The pedalling animation is one crank revolution; the game seeks it to the
 bike's real crank angle, so the feet stay locked to the pedals.
 
+## Helmet
+
+Built in `art/helmet.py` (run `HELMET_STAGE=blockout` to get the grey
+silhouette-only version; `art/render_helmet.py` renders front/side/rear views).
+Construction follows real full-face MTB helmets, read from the reference photos:
+
+* **Shell** (IXS side/rear/top views): one moulded piece, longer than wide,
+  flattened crown, small rear lip, coverage low behind the head, jawline
+  rising toward the ear; black EPS liner and rubber trim at every edge.
+* **Peak** (IXS top & 3/4, Fox): bolted at both temples and the centre, sweeps
+  down at the sides, projects forward with a centre rib and two vent cut-outs.
+* **Chin bar** (IXS 3/4 & side, Fox): wide and solid, flat front, level
+  underside, large mouth opening backed by mesh with two moulded bars, side vents.
+* **Vents** (IXS top, Fox, IXS rear): real openings - brow intakes under the
+  peak, crown vents, rear exhausts, chin vents.
+* Open eye port for separate goggles (none fitted), padding at the cheeks and
+  neck, one restrained side graphic.
+
 ## Tests
 
 ```bash
