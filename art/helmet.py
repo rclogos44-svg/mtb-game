@@ -25,8 +25,8 @@ D = math.radians
 # ------------------------------------------------------------------ dimensions
 # Size M downhill lid: ~300 mm long without the chin bar, ~250 mm wide,
 # top ~25 mm above the head, chin bar ~45 mm clear of the mouth.
-CY, CZ = 0.106, -0.020           # shell centre (above the neck joint, slightly back)
-RX, RY, RZ = 0.124, 0.140, 0.172  # half width, half height, half length
+CY, CZ = 0.106, -0.010           # shell centre (above the neck joint, slightly back)
+RX, RY, RZ = 0.124, 0.140, 0.162  # half width, half height, half length
 SHELL_T = 0.024                  # shell + EPS liner thickness
 
 
@@ -35,8 +35,8 @@ def smooth(e0, e1, x):
     return t * t * (3 - 2 * t)
 
 
-def shape(phi, th):
-    """Outer shell surface. phi: angle round the head (0 = front, +90 = right).
+def base_shape(phi, th):
+    """Smooth underlying form of the shell. phi: angle round the head (0 = front, +90 = right).
     th: angle down from the crown (0 = top)."""
     sp, cp = math.sin(phi), math.cos(phi)
     st, ct = math.sin(th), math.cos(th)
@@ -59,18 +59,49 @@ def shape(phi, th):
     # chin bar: front-lower region pushed forward and down, narrowed, with a
     # forward-sloping lower face
     w = wc
-    z += 0.058 * w
-    y -= 0.020 * w
-    x *= 1.0 - 0.06 * w
+    z += 0.122 * w
+    y -= 0.036 * w
+    x *= 1.0 - 0.04 * w
+    # chin bar prow: a V-shaped front (two flat facets meeting on the centre line)
+    zf = CZ + RZ + 0.102 - 0.55 * abs(x)
+    if w > 0.0 and z > zf - 0.012:
+        z = zf - 0.012 + 0.012 * math.tanh((z - (zf - 0.012)) / 0.012)
     # underside of the chin bar runs nearly level back toward the jaw
-    y_floor = -0.072
+    y_floor = -0.090
     if y < y_floor + 0.02 and w > 0.0:
         y = y + (y_floor + 0.02 - 0.02 * math.exp((y - (y_floor + 0.02)) / 0.02) - y) * w
-    # flatten the chin bar's front face (cap how far forward it bulges)
-    zf = CZ + RZ + 0.040
-    if z > zf - 0.03:
-        z = zf - 0.03 + 0.03 * math.tanh((z - (zf - 0.03)) / 0.03)
     return Vector((x, y, z))
+
+
+def step(x, width):
+    return 0.5 * (1.0 + math.tanh(x / width))
+
+
+def features(phi, th):
+    """Moulded detail on the smooth form, as raised height (m): a side
+    character line, cheek creases, a lip along the lower edge and two low
+    crown ridges. Kept clear of the openings' edges."""
+    pd, td = math.degrees(phi), math.degrees(th)
+    apd = abs(pd)
+    h = 0.0
+    tb = 66.0 + 0.15 * apd
+    side = step(apd - 64.0, 5.0) * (1.0 - step(apd - 165.0, 5.0))
+    h += 0.0045 * step(tb - td, 2.0) * side
+    if 30.0 < apd < 120.0 and td > 100.0:
+        line = 66.0 + (td - 110.0) * 1.1
+        h += 0.0045 * step(line - apd, 2.0) * step(td - 106.0, 2.0)
+    tm = math.degrees(th_max(phi))
+    h += 0.0045 * step(td - (tm - 5.0), 1.0)
+    for pc in (-8.5, 8.5):
+        if 6.0 < td < 66.0:
+            fade = step(td - 12.0, 3.0) * (1.0 - step(td - 58.0, 3.0))
+            h += 0.0055 * fade * (1.0 - step(abs(pd - pc) - 3.0, 1.0))
+    return h
+
+
+def shape(phi, th):
+    """Outer shell surface: smooth form + moulded detail (raised radially)."""
+    return grow(base_shape(phi, th), features(phi, th))
 
 
 def th_max(phi):
@@ -78,7 +109,7 @@ def th_max(phi):
     jaw, lowest again under the chin bar."""
     f = (1 + math.cos(phi)) / 2
     ear = math.exp(-((abs(phi) - D(102)) / D(24)) ** 2)
-    return D(119 + 29 * f ** 1.6 - 7 * ear)
+    return D(119 + 31 * f ** 1.6 - 7 * ear)
 
 
 def grow(v, g):
@@ -103,13 +134,13 @@ def openings(stage):
         holes.append(MOUTH)
         for s in (-1, 1):
             holes += [
-                (s * D(21), D(63.5), D(9), D(2.6), 2.5),     # brow intakes under the peak
-                (s * D(11), D(30), D(3.0), D(10), 2.5),      # crown vents, front to back
-                (s * D(30), D(36), D(3.0), D(8), 2.5),
+                (s * D(19), D(34), D(3.2), D(10), 2.5),      # crown vents outside the ridges
+                (s * D(44), D(46), D(5), D(6), 2.5),
                 (s * D(160), D(86), D(5), D(3.5), 2.5),      # rear exhausts
                 (s * D(141), D(72), D(4), D(5), 2.5),
                 (s * D(37), D(128), D(3.5), D(6.5), 2.5),    # chin bar side vents
             ]
+        holes.append((0.0, D(36), D(2.6), D(10), 2.5))     # centre crown vent
     return holes
 
 
@@ -237,18 +268,18 @@ def build_peak(p, Mr, stage, M):
     NU, NV = 49, 17
 
     def base(u):
-        phi = D(64 * u)
-        th = D(66 + 11 * u * u)
+        phi = D(62 * u)
+        th = D(58 + 11 * u * u)
         return grow(shape(phi, th), 0.002), phi
 
     def pt(i, j):
         u = -1 + 2 * i / (NU - 1)
         v = j / (NV - 1)
         b, phi = base(u)
-        d = Vector((math.sin(phi) * 0.22, -0.24, math.cos(phi))).normalized()   # head tilts back when riding: this sits near level
-        length = 0.112 * (1.0 - 0.75 * u ** 2)
+        d = Vector((math.sin(phi) * 0.22, 0.30, math.cos(phi))).normalized()   # angled up, as on DH lids
+        length = 0.124 * (1.0 - 0.30 * u ** 2 - 0.45 * u ** 4)              # squarer corners
         q = b + d * length * v
-        q.y += 0.008 * math.exp(-(u / 0.13) ** 2) * min(1.0, v * 3)          # centre rib
+        q.y += 0.011 * math.exp(-(u / 0.12) ** 2) * min(1.0, v * 2.5)        # raised centre rib
         q.y += 0.007 * v ** 2 * (1 - 0.5 * u * u)                              # lip turns up
         q.y -= 0.014 * max(0.0, abs(u) - 0.65) / 0.35 * v                      # wings sweep down
         return q

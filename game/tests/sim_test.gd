@@ -7,6 +7,9 @@ var fails := 0
 var phase := "settle"
 var t0 := 0.0
 var line_speed := 6.0
+var flip_period := 1.5
+var flip_pedal := 1.0
+var flip_brake := 0.0
 
 
 func check(name: String, ok: bool, detail: String) -> void:
@@ -32,6 +35,10 @@ func pilot(_b, _t: float) -> Dictionary:
 			return {"pedal": 1.0, "steer": 1.0 if k % 2 == 0 else -1.0, "hop": int(_t * 1.3) % 3 == 0}
 		"steerstill":
 			return {"steer": 1.0}
+		"flip":
+			# hold W+A, then switch to W+D (or S+A -> S+D), back and forth
+			var dir := 1.0 if int(_t / flip_period) % 2 == 0 else -1.0
+			return {"pedal": flip_pedal, "brake": flip_brake, "steer": dir}
 		"line":
 			return {"pedal": 1.0 if _b.linear_velocity.length() < line_speed else 0.0, "steer": 0.25 * sin(_t * 2.3)}
 		"hopload":
@@ -187,6 +194,29 @@ func _run(main) -> void:
 					crashed = true
 			check("%s at %d km/h stays up, hands on bars" % [spot[0], int(spd * 3.6)], not crashed and worst_roll < 40.0 and worst_hand < 0.02,
 				"max roll %.0f deg, hands up to %.1f cm off" % [worst_roll, worst_hand * 100])
+
+	# switching full lock from one side to the other (W+A <-> W+D, S+A <-> S+D)
+	for combo in [[1.0, 0.0, 1.5, "W+A <-> W+D"], [1.0, 0.0, 0.6, "W+A <-> W+D quick"], [0.0, 1.0, 1.0, "S+A <-> S+D"], [1.0, 0.0, 3.0, "W+A <-> W+D slow"], [1.0, 0.0, 2.0, "W+A <-> W+D 2 s"], [1.0, 0.0, 1.0, "W+A <-> W+D 1 s"]]:
+		phase = "flip"
+		flip_pedal = combo[0]
+		flip_brake = combo[1]
+		flip_period = combo[2]
+		bike.reset_bike(Transform3D(Basis(), Vector3(150, 0.05, -150)))
+		await wait(0.05)
+		if flip_brake > 0.0:
+			# get some speed first
+			phase = "pedal"
+			await wait(3.0)
+			phase = "flip"
+		bike.sim_time = 0.0
+		var worst := 0.0
+		var fell := false
+		for i in int(8.0 * Engine.physics_ticks_per_second):
+			await physics_frame
+			worst = maxf(worst, absf(roll_deg()))
+			if bike.global_transform.basis.y.dot(Vector3.UP) < 0.4:
+				fell = true
+		check("steer switch %s: stays up" % combo[3], not fell and worst < 50.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
 
 	# hands follow the bars when steering
 	phase = "settle"

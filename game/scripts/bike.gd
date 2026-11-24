@@ -14,7 +14,11 @@ extends RigidBody3D
 const GEO_PATH := "res://assets/geometry.json"
 const TYRE_TUBE := 0.0275          # tyre cross-section radius (m)
 const TYRE_RATE := 110000.0
-const TYRE_RELAX_LEN := 0.25      # m        # tyre vertical stiffness once the suspension bottoms (N/m)
+const TYRE_RELAX_LEN := 0.25      # m
+const MAX_LEAN := 0.70            # rad (40 deg)
+const LEAN_RATE := 1.3            # rad/s the rider can roll the bike
+const MAX_LEAN_TORQUE := 1300.0   # N m
+const MAX_ROLL_RATE_GROUND := 1.8 # rad/s        # tyre vertical stiffness once the suspension bottoms (N/m)
 const GRAV := 9.81
 ## Ray angles round the tyre from straight down (+ = ahead of the axle).
 const WHEEL_RAY_ANGLES := [-0.9, -0.6, -0.35, -0.15, 0.0, 0.15, 0.35, 0.6, 0.9]
@@ -34,7 +38,7 @@ const WHEEL_RAY_ANGLES := [-0.9, -0.6, -0.35, -0.15, 0.0, 0.15, 0.35, 0.6, 0.9]
 @export var brake_force := 1150.0
 @export_group("Handling")
 @export var lean_stiffness := 2600.0
-@export var lean_damping := 330.0
+@export var lean_damping := 480.0
 @export var rider_pitch_damping := 160.0
 @export_group("Air")
 @export var air_roll_stiffness := 450.0
@@ -77,6 +81,7 @@ var steer_angle := 0.0
 var crank_angle := 0.0
 var cadence_rpm := 0.0
 var hop_charge := 0.0
+var lean_target := 0.0     ## rad, + = leaning left
 var weight_back := 0.0      ## 0..1, rider shifting back under braking
 var sim_time := 0.0
 var upside_down_time := 0.0
@@ -213,7 +218,10 @@ func _physics_process(dt: float) -> void:
 	var both := rear.contact and front.contact
 	if grounded:
 		# on one wheel the lone tyre can't hold a full lean, so ease off
-		_lean_assist(up_b, fwd_b, 1.0 if both else 0.35)
+		# on one wheel the lone tyre can't hold a full lean, so ease off - unless
+		# the bike is already well over, where the rider keeps full control
+		var leaned := absf(up_b.cross(Vector3.UP).dot(fwd_b)) > sin(deg_to_rad(15.0))
+		_lean_assist(up_b, fwd_b, 1.0 if (both or leaned) else 0.35)
 		if not both:
 			_one_wheel_balance(fwd_b, right_b)
 		# the rider's arms and legs soak up fast pitching (braking dive, landings)
@@ -391,11 +399,16 @@ func _lean_assist(up_b: Vector3, fwd_b: Vector3, strength := 1.0) -> void:
 	var v_f := v.dot(fwd_b)
 	var wb: float = geo["wheelbase"]
 	var a_lat := v_f * v_f * tan(steer_angle) / wb
-	var left := Vector3.UP.cross(Vector3(fwd_b.x, 0.0, fwd_b.z)).normalized()
-	var target_up := (Vector3.UP * GRAV + left * a_lat).normalized()
+	var want := clampf(atan(a_lat / GRAV), -MAX_LEAN, MAX_LEAN)
+	# a rider rolls the bike from one lean to the other over ~half a second;
+	# flipping the target instantly would yank the tyres out from under it
+	lean_target = move_toward(lean_target, want, LEAN_RATE * get_physics_process_delta_time())
+	var hfwd := Vector3(fwd_b.x, 0.0, fwd_b.z).normalized()
+	var target_up := Vector3.UP.rotated(hfwd, -lean_target)
 	var err := up_b.cross(target_up).dot(fwd_b)
 	var roll_rate := angular_velocity.dot(fwd_b)
-	apply_torque(fwd_b * strength * (lean_stiffness * err - lean_damping * roll_rate))
+	var tq := strength * (lean_stiffness * err - lean_damping * roll_rate)
+	apply_torque(fwd_b * clampf(tq, -MAX_LEAN_TORQUE, MAX_LEAN_TORQUE))
 
 
 func _hop(grounded: bool, up_b: Vector3, fwd_b: Vector3, com_g: Vector3, dt: float) -> void:
@@ -444,9 +457,11 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var bas := state.transform.basis
 	var wl := bas.inverse() * state.angular_velocity
 	var lim := max_twist_rate
-	if absf(wl.y) > lim or absf(wl.z) > lim:
+	# on the ground a rider can't flick the bike from lean to lean faster than ~1.8 rad/s
+	var roll_lim := MAX_ROLL_RATE_GROUND if (rear.contact or front.contact) else lim
+	if absf(wl.y) > lim or absf(wl.z) > roll_lim:
 		wl.y = clampf(wl.y, -lim, lim)
-		wl.z = clampf(wl.z, -lim, lim)
+		wl.z = clampf(wl.z, -roll_lim, roll_lim)
 		state.angular_velocity = bas * wl
 	if _reset_pending:
 		state.transform = spawn_xform
@@ -457,6 +472,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			w.s_vel = 0.0
 			w.omega = 0.0
 		steer_angle = 0.0
+		lean_target = 0.0
 		upside_down_time = 0.0
 		_reset_pending = false
 

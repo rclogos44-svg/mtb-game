@@ -192,7 +192,7 @@ class Part:
         bm.free()
 
     # -------------------------------------------------------------- output
-    def build(self, origin=(0, 0, 0), collection=None):
+    def build(self, origin=(0, 0, 0), collection=None, sharp_angle=None):
         origin = Vector(origin)
         bmesh.ops.translate(self.bm, vec=-origin, verts=self.bm.verts)
         me = bpy.data.meshes.new(self.name)
@@ -200,6 +200,8 @@ class Part:
         self.bm.free()
         for m in self.mats:
             me.materials.append(m)
+        if sharp_angle is not None:
+            me.set_sharp_from_angle(angle=sharp_angle)    # hard edges stay crisp
         ob = bpy.data.objects.new(self.name, me)
         ob.location = origin
         (collection or bpy.context.scene.collection).objects.link(ob)

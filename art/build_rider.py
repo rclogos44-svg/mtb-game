@@ -32,7 +32,7 @@ col = bpy.context.scene.collection
 # ------------------------------------------------------------------ materials
 JERSEY = mk.material("Jersey", (0.018, 0.018, 0.020), roughness=0.85)
 JERSEY_ACC = mk.material("JerseyAccent", (0.07, 0.07, 0.075), roughness=0.8)
-PANTS = mk.material("Pants", (0.045, 0.047, 0.05), roughness=0.9)
+PANTS = mk.material("Pants", (0.115, 0.118, 0.125), roughness=0.95)        # charcoal, clearly not the black jersey
 SHOE = mk.material("Shoe", (0.02, 0.02, 0.022), roughness=0.75)
 SOLE = mk.material("Sole", (0.32, 0.20, 0.10), roughness=0.85)
 GLOVE = mk.material("Glove", (0.03, 0.03, 0.032), roughness=0.8)
@@ -195,7 +195,8 @@ for poly in body_me.polygons:
     leg = sum(b in LEG_BONES for b in bones) > len(bones) / 2
     z = sum(body_me.vertices[i].co.z for i in poly.vertices) / len(bones)
     x = abs(sum(body_me.vertices[i].co.x for i in poly.vertices) / len(bones))
-    poly.material_index = 1 if (leg and z < 1.02) else 0
+    WAIST_Z = 1.005                    # clean, level waistline (rest pose)
+    poly.material_index = 1 if z < WAIST_Z else 0
     if not leg and (1.30 < z < 1.37 and x < 0.2):
         poly.material_index = 2         # chest stripe
     if not leg and x > 0.53:
@@ -284,13 +285,32 @@ def helmet():
     """Full-face MTB helmet (see art/helmet.py), plus a plain face inside."""
     p = Part("Helmet")
     build_helmet(p, REST["head"], HELMET_STAGE, SKIN, graphics=os.environ.get("HELMET_GRAPHICS", "1") == "1")
-    ob = p.build()
+    ob = p.build(sharp_angle=math.radians(28))
     vg = ob.vertex_groups.new(name="head")
     vg.add(list(range(len(ob.data.vertices))), 1.0, "REPLACE")
     return ob
 
 
-parts = [body, shoe("R", 1), shoe("L", -1), glove("R", 1), glove("L", -1), helmet()]
+def jersey_hem():
+    """The jersey's hem: a slightly proud band round the waist that the shirt
+    ends in, so it reads as sitting over the pants."""
+    p = Part("JerseyHem")
+    secs = []
+    for k in range(49):
+        a = 2 * math.pi * k / 48
+        sec = []
+        for (dz, grow_) in ((0.016, 0.000), (0.016, 0.007), (-0.010, 0.009), (-0.012, 0.002)):
+            rx, ry = 0.150 + grow_, 0.121 + grow_
+            sec.append(Vector((rx * math.cos(a), 0.008 + ry * math.sin(a), 1.008 + dz)))
+        secs.append(sec)
+    p.loft(secs, JERSEY, cap=False)
+    ob = p.build()
+    vg = ob.vertex_groups.new(name="hips")
+    vg.add(list(range(len(ob.data.vertices))), 1.0, "REPLACE")
+    return ob
+
+
+parts = [body, shoe("R", 1), shoe("L", -1), glove("R", 1), glove("L", -1), helmet(), jersey_hem()]
 for ob in parts:
     mod = ob.modifiers.new("Armature", "ARMATURE")
     mod.object = arm_ob
