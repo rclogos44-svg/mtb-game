@@ -15,8 +15,8 @@ const GEO_PATH := "res://assets/geometry.json"
 const TYRE_TUBE := 0.0275          # tyre cross-section radius (m)
 const TYRE_RATE := 110000.0
 const TYRE_RELAX_LEN := 0.25      # m
-const MAX_LEAN := 0.52            # rad (30 deg)
-const STEER_LAT_G := 0.40         # g of cornering at full steering
+const MAX_LEAN := 0.35            # rad (20 deg)
+const STEER_LAT_G := 0.25         # g of cornering at full steering (wide, gentle turns)
 const LEAN_RATE := 1.3            # rad/s the rider can roll the bike
 const MAX_LEAN_TORQUE := 1300.0   # N m
 const MAX_ROLL_RATE_GROUND := 1.8 # rad/s        # tyre vertical stiffness once the suspension bottoms (N/m)
@@ -205,7 +205,7 @@ func _physics_process(dt: float) -> void:
 	# full steering asks for a firm but realistic turn: about STEER_LAT_G of
 	# sideways acceleration at any speed (tan(steer) = a * wheelbase / v^2)
 	var wb: float = geo["wheelbase"]
-	var max_steer := minf(0.60, atan(STEER_LAT_G * GRAV * wb / maxf(speed * speed, 0.01)))
+	var max_steer := minf(0.45, atan(STEER_LAT_G * GRAV * wb / maxf(speed * speed, 0.01)))
 	steer_angle = move_toward(steer_angle, in_steer * max_steer, 2.0 * dt)
 	var axis_g := (xf.basis * steer_axis_local).normalized()
 	var steer_rot := Basis(axis_g, steer_angle)

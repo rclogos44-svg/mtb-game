@@ -92,7 +92,7 @@ func _run(main) -> void:
 	await wait(3.0)
 	var heading1 := -bike.global_transform.basis.z
 	var yaw := rad_to_deg(heading0.signed_angle_to(heading1, Vector3.UP))
-	check("steers left", yaw > 30.0, "turned %.0f deg" % yaw)
+	check("steers left", yaw > 15.0, "turned %.0f deg" % yaw)
 	check("leans into the turn (left)", roll_deg() > 4.0 and roll_deg() < 45.0, "roll %.1f deg" % roll_deg())
 	check("still on two wheels", bike.rear.contact and bike.front.contact, "")
 
@@ -216,7 +216,7 @@ func _run(main) -> void:
 			worst = maxf(worst, absf(roll_deg()))
 			if bike.global_transform.basis.y.dot(Vector3.UP) < 0.4:
 				fell = true
-		check("steer switch %s: stays up, lean realistic" % combo[3], not fell and worst < 32.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
+		check("steer switch %s: stays up, gentle lean" % combo[3], not fell and worst < 24.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
 
 	# hands follow the bars when steering
 	phase = "settle"

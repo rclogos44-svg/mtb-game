@@ -387,16 +387,16 @@ def pose_for(alpha):
     P = {}
     P["root"] = REST["root"].copy()
     bob = -0.010 * math.cos(2 * alpha)
-    pelvis = Vector((0.0, -0.135, 1.060 + bob))
-    lean = math.radians(28)
+    pelvis = Vector((0.0, -0.205, 1.060 + bob))      # standing, hips over the cranks
+    lean = math.radians(18)
     P["hips"] = bone_matrix(pelvis, (0, math.sin(lean), math.cos(lean)), FWD)
-    sp_l = math.radians(40)
+    sp_l = math.radians(26)
     P["spine"] = bone_matrix(child_head(P["hips"], "hips", "spine"), (0, math.sin(sp_l), math.cos(sp_l)), FWD)
-    ch_l = math.radians(50)
+    ch_l = math.radians(28)
     P["chest"] = bone_matrix(child_head(P["spine"], "spine", "chest"), (0, math.sin(ch_l), math.cos(ch_l)), FWD)
-    nk = math.radians(22)
+    nk = math.radians(20)
     P["neck"] = bone_matrix(child_head(P["chest"], "chest", "neck"), (0, math.sin(nk), math.cos(nk)), FWD)
-    hd = math.radians(-12)
+    hd = math.radians(-6)
     P["head"] = bone_matrix(child_head(P["neck"], "neck", "head"), (0, math.sin(hd), math.cos(hd)), FWD)
 
     for s, n, phase in ((1, "R", 0.0), (-1, "L", math.pi)):
@@ -427,7 +427,7 @@ def pose_for(alpha):
         Mh = bone_matrix(Vector((0, 0, 0)), hand_y, hand_z)
         # grip sits at local (0, 0.082, -0.030) in the hand frame
         wrist = grip_c - (Mh.to_3x3() @ Vector((0, 0.082, -0.030)))
-        epole = Vector((s * 0.8, -0.35, 0.35))
+        epole = Vector((s * 0.40, -0.75, 0.05))      # elbows back and a little out, not winged
         elbow, wrist_r = two_bone_ik(shoulder, wrist, blen("upperarm." + n), blen("forearm." + n), epole)
         P["upperarm." + n] = bone_matrix(shoulder, elbow - shoulder, epole)
         P["forearm." + n] = bone_matrix(elbow, wrist_r - elbow, epole)
