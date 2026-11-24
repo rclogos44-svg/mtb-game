@@ -1,0 +1,155 @@
+<title>MTB Dirt Jump</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Full-screen game: the canvas fills the frame; one overlay for loading and the start button.
+     Single dark look on purpose (it's a game screen), every colour set explicitly. */
+  :root {
+    --bg: #14130f;
+    --panel: rgba(20, 19, 15, 0.86);
+    --fg: #efe9dd;
+    --muted: #a39b8a;
+    --dirt: #b07a4a;
+    --line: #3a352c;
+    --display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+    --body: "Barlow", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--body); overflow: hidden; }
+  #canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; background: var(--bg); }
+  #overlay {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 24px;
+    background: radial-gradient(120% 90% at 50% 110%, #3b2a1b 0%, var(--bg) 60%);
+  }
+  .card { width: min(520px, 100%); display: grid; gap: 18px; }
+  h1 {
+    font-family: var(--display); font-weight: 700; font-style: italic;
+    font-size: clamp(44px, 9vw, 76px); line-height: 0.9; letter-spacing: 0.01em;
+    text-transform: uppercase; margin: 0; text-wrap: balance;
+  }
+  h1 span { color: var(--dirt); }
+  .sub { color: var(--muted); margin: 0; line-height: 1.5; font-size: 15px; }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0%; background: var(--dirt); transition: width 0.2s; }
+  #status { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 1.2em; }
+  #play {
+    justify-self: start; font-family: var(--display); font-weight: 700; font-size: 24px;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--bg); background: var(--dirt);
+    border: 0; border-radius: 4px; padding: 12px 30px; cursor: pointer;
+  }
+  #play:hover { filter: brightness(1.1); }
+  #play:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+  #play:disabled { opacity: 0.4; cursor: default; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; margin: 0; }
+  .keys dt { font-family: var(--display); font-weight: 600; letter-spacing: 0.04em; color: var(--fg); }
+  .keys dd { margin: 0; color: var(--muted); }
+  .note { font-size: 12px; color: var(--muted); margin: 0; }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:ital,wght@0,600;1,700&display=swap">
+
+<canvas id="canvas" tabindex="0">Your browser doesn't support WebGL.</canvas>
+<div id="overlay">
+  <div class="card">
+    <h1>MTB <span>Dirt Jump</span></h1>
+    <p class="sub">29&Prime; trail bike, 161&nbsp;mm coil rear / 160&nbsp;mm air fork, simulated through the real linkage. Ride the baseplate, roll the rollers, try the drop.</p>
+    <div class="bar" aria-hidden="true"><i id="fill"></i></div>
+    <div id="status">Loading the engine&hellip;</div>
+    <button id="play" type="button" disabled>Ride</button>
+    <dl class="keys">
+      <dt>W</dt><dd>Pedal</dd>
+      <dt>S</dt><dd>Brake</dd>
+      <dt>A / D</dt><dd>Steer</dd>
+      <dt>Space</dt><dd>Hold to load the suspension, release to hop</dd>
+      <dt>C</dt><dd>Camera: chase, side view, orbit</dd>
+      <dt>T &middot; R</dt><dd>Slow motion &middot; reset</dd>
+    </dl>
+    <p class="note">Needs a computer with a keyboard (a gamepad works too). Click the game if the keys stop responding.</p>
+  </div>
+</div>
+
+<script>
+  // The engine ships gzipped (to fit the artifact's per-file limit) and both data files use
+  // .wasm names (a type artifacts serve); map Godot's requests onto them and unpack the engine.
+  (function () {
+    const realFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      const url = typeof input === "string" ? input : (input && input.url) || "";
+      if (/index\.pck(\?|$)/.test(url)) {
+        return realFetch("game.pck.wasm").then(function (r) {
+          if (!r.ok) throw new Error("game data download failed (" + r.status + ")");
+          return new Response(r.body, { headers: { "Content-Type": "application/octet-stream" } });
+        });
+      }
+      if (/index\.wasm(\?|$)/.test(url)) {
+        return realFetch("engine.gz.wasm").then(function (r) {
+          if (!r.ok) throw new Error("engine download failed (" + r.status + ")");
+          const body = r.body.pipeThrough(new DecompressionStream("gzip"));
+          return new Response(body, { headers: { "Content-Type": "application/wasm" } });
+        });
+      }
+      return realFetch(input, init);
+    };
+  })();
+</script>
+<script src="index.js"></script>
+<script>
+  const GODOT_CONFIG = {
+    args: [], canvasResizePolicy: 2, ensureCrossOriginIsolationHeaders: false, executable: "index",
+    experimentalVK: false, fileSizes: { "index.pck": 3760896, "index.wasm": 43699190 },
+    focusCanvas: true, gdextensionLibs: []
+  };
+  const fill = document.getElementById("fill");
+  const statusEl = document.getElementById("status");
+  const play = document.getElementById("play");
+  const overlay = document.getElementById("overlay");
+  const canvas = document.getElementById("canvas");
+
+  function fail(msg) {
+    statusEl.textContent = msg;
+    play.disabled = true;
+  }
+
+  if (typeof Engine === "undefined") {
+    fail("The game files didn't load. Reload the page to try again.");
+  } else if (!Engine.isWebGLAvailable(2)) {
+    fail("This browser has WebGL 2 turned off, which the game needs. Try Chrome, Edge or Firefox on a computer.");
+  } else if (typeof DecompressionStream === "undefined") {
+    fail("This browser is too old to unpack the game. Update it, or try Chrome, Edge or Firefox.");
+  } else {
+    const engine = new Engine(GODOT_CONFIG);
+    // download everything up front so Ride starts instantly
+    engine.init("index").then(function () {
+      fill.style.width = "60%";
+      statusEl.textContent = "Engine ready. Press Ride to start.";
+      play.disabled = false;
+    }).catch(function (e) { fail("Couldn't start the engine: " + e.message); });
+    statusEl.textContent = "Downloading the engine (about 13 MB)\u2026";
+    let tick = 0;
+    const timer = setInterval(function () {
+      if (!play.disabled) { clearInterval(timer); return; }
+      tick = Math.min(tick + 2, 55);
+      fill.style.width = tick + "%";
+    }, 300);
+
+    play.addEventListener("click", function () {
+      play.disabled = true;
+      statusEl.textContent = "Loading the bike\u2026";
+      engine.startGame({
+        onProgress: function (cur, total) {
+          if (total > 0) fill.style.width = (60 + 40 * cur / total).toFixed(0) + "%";
+        }
+      }).then(function () {
+        console.log("startGame resolved");
+        overlay.hidden = true;
+        canvas.focus();
+      }).catch(function (e) { fail("Couldn't start the game: " + e.message); });
+    });
+    canvas.addEventListener("pointerdown", function () { canvas.focus(); });
+  }
+</script>
