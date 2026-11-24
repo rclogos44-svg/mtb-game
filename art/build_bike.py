@@ -71,8 +71,8 @@ AX = g["steer_axis"]
 NRM = g["steer_normal"]
 
 # seat tube: straight line from the BB to the clamp (dropper post lowered)
-SEAT_LOW = (-0.010, 0.370)
-SEAT_TOP = (-0.106, 0.860)
+SEAT_LOW = (-0.005, 0.370)
+SEAT_TOP = (-0.058, 0.790)      # shorter, steeper seat tube, as in the photo
 ST_DIR = Vector((0, SEAT_TOP[0] - SEAT_LOW[0], SEAT_TOP[1] - SEAT_LOW[1])).normalized()
 
 
@@ -87,7 +87,7 @@ ht_b, ht_t = g["head_tube_bottom"], g["head_tube_top"]
 frame.tube(S(uv_add(ht_b, AX, -0.010)), S(uv_add(ht_t, AX, 0.006)), 0.031, 0.027, FRAME, seg=28)
 # top tube: straight, head tube to seat tube
 tt_front = uv_add(ht_t, AX, -0.028)
-tt_rear = st_at(0.715)      # low at the seat tube: steep, aggressive top tube
+tt_rear = st_at(0.665)      # low at the seat tube: steep, aggressive top tube (traced)
 frame.tube(S(tt_front), S(tt_rear), 0.025, 0.020, FRAME, seg=26, sy=1.15)
 frame.sphere(S(tt_rear), 0.021, FRAME_DK)
 

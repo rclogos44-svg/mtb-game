@@ -196,7 +196,7 @@ func _run(main) -> void:
 				"max roll %.0f deg, hands up to %.1f cm off" % [worst_roll, worst_hand * 100])
 
 	# switching full lock from one side to the other (W+A <-> W+D, S+A <-> S+D)
-	for combo in [[1.0, 0.0, 1.5, "W+A <-> W+D"], [1.0, 0.0, 0.6, "W+A <-> W+D quick"], [0.0, 1.0, 1.0, "S+A <-> S+D"], [1.0, 0.0, 3.0, "W+A <-> W+D slow"], [1.0, 0.0, 2.0, "W+A <-> W+D 2 s"], [1.0, 0.0, 1.0, "W+A <-> W+D 1 s"]]:
+	for combo in [[1.0, 0.0, 1.5, "W+A <-> W+D"], [1.0, 0.0, 0.6, "W+A <-> W+D quick"], [0.0, 1.0, 1.0, "S+A <-> S+D"], [1.0, 0.0, 3.0, "W+A <-> W+D slow"], [1.0, 0.0, 2.0, "W+A <-> W+D 2 s"], [1.0, 0.0, 1.0, "W+A <-> W+D 1 s"], [1.0, 0.0, 0.4, "W+A <-> W+D weaving"]]:
 		phase = "flip"
 		flip_pedal = combo[0]
 		flip_brake = combo[1]
@@ -216,7 +216,7 @@ func _run(main) -> void:
 			worst = maxf(worst, absf(roll_deg()))
 			if bike.global_transform.basis.y.dot(Vector3.UP) < 0.4:
 				fell = true
-		check("steer switch %s: stays up" % combo[3], not fell and worst < 50.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
+		check("steer switch %s: stays up, lean realistic" % combo[3], not fell and worst < 32.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
 
 	# hands follow the bars when steering
 	phase = "settle"

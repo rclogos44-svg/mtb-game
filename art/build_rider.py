@@ -110,11 +110,11 @@ NODES = [  # name, position, radius (lateral, depth)
 ]
 for s, n in ((1, "R"), (-1, "L")):
     NODES += [
-        ("hip" + n, (0.090 * s, 0, 0.900), (0.110, 0.110)),
-        ("thighM" + n, (0.096 * s, 0.0, 0.715), (0.098, 0.098)),
-        ("knee" + n, J["knee" + n], (0.078, 0.078)),
-        ("shinM" + n, (0.100 * s, 0.0, 0.300), (0.072, 0.072)),
-        ("ankle" + n, (0.100 * s, 0.0, 0.110), (0.060, 0.060)),
+        ("hip" + n, (0.092 * s, 0, 0.900), (0.130, 0.128)),          # relaxed-fit riding pants
+        ("thighM" + n, (0.098 * s, 0.0, 0.715), (0.122, 0.120)),
+        ("knee" + n, J["knee" + n], (0.104, 0.106)),                 # room for a knee pad
+        ("shinM" + n, (0.100 * s, 0.0, 0.300), (0.093, 0.093)),      # straight leg, not tapered
+        ("ankle" + n, (0.100 * s, 0.0, 0.125), (0.086, 0.086)),
         ("shoulder" + n, (0.195 * s, 0.0, 1.415), (0.078, 0.078)),
         ("uarmM" + n, ((0.185 + 0.397) / 2 * s, 0, (1.415 + 1.223) / 2), (0.066, 0.066)),
         ("elbow" + n, J["elbow" + n], (0.056, 0.056)),
@@ -310,7 +310,33 @@ def jersey_hem():
     return ob
 
 
-parts = [body, shoe("R", 1), shoe("L", -1), glove("R", 1), glove("L", -1), helmet(), jersey_hem()]
+def pant_cuffs():
+    """Loose cuffs that sit on the shoes, with the fabric stacking into a couple
+    of soft folds just above, as relaxed riding pants do."""
+    obs = []
+    for s, n in ((1, "R"), (-1, "L")):
+        p = Part("PantCuff." + n)
+        cx = 0.100 * s
+        for (z0, z1, r_in, r_out) in ((0.118, 0.146, 0.072, 0.080),     # cuff
+                                      (0.168, 0.184, 0.074, 0.079),     # folds
+                                      (0.214, 0.228, 0.075, 0.0795)):
+            secs = []
+            for k in range(41):
+                a = 2 * math.pi * k / 40
+                wob = 1.0 + 0.04 * math.sin(3 * a + z0 * 40)              # fabric isn't a perfect ring
+                sec = []
+                for (z, r) in ((z1, r_in), ((z0 + z1) / 2, r_out), (z0, r_in)):
+                    sec.append(Vector((cx + r * wob * math.cos(a), 0.004 + r * wob * math.sin(a) * 1.05, z)))
+                secs.append(sec)
+            p.loft(secs, PANTS, cap=False)
+        ob = p.build()
+        vg = ob.vertex_groups.new(name="shin." + n)
+        vg.add(list(range(len(ob.data.vertices))), 1.0, "REPLACE")
+        obs.append(ob)
+    return obs
+
+
+parts = [body, shoe("R", 1), shoe("L", -1), glove("R", 1), glove("L", -1), helmet(), jersey_hem()] + pant_cuffs()
 for ob in parts:
     mod = ob.modifiers.new("Armature", "ARMATURE")
     mod.object = arm_ob

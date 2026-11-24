@@ -31,18 +31,18 @@ FORK_A2C = 0.583         # axle-to-crown, along steering axis
 FORK_TRAVEL = 0.160
 CROWN_TO_HT = 0.015
 HEAD_TUBE_LEN = 0.110
-STEM_SPACER = 0.020
+STEM_SPACER = 0.045
 STEM_LEN = 0.045
-BAR_RISE = 0.025
+BAR_RISE = 0.055
 BAR_WIDTH = 0.780
 
 P = (0.000, 0.430)      # main pivot
 H0 = (-0.405, 0.425)    # seatstay pivot on chainstay
-R = (0.004, 0.630)      # rocker pivot (boss just ahead of the seat tube)
-B0 = (-0.1042, 0.6494)  # rocker <-> seatstay
+R = (0.011, 0.620)      # rocker pivot (boss just ahead of the seat tube)
+B0 = (0.022, 0.556)     # rocker <-> seatstay
 F = None                 # shock front mount: set from C0 below (on the frame brace)
 
-SHOCK_EYE = 0.210        # eye-to-eye (210 x 55 coil shock)
+SHOCK_EYE = 0.205        # eye-to-eye (205 x 55 coil shock)
 SHOCK_STROKE = 0.055
 TARGET_TRAVEL = 0.160    # rear wheel travel we want from that stroke
 
@@ -123,8 +123,10 @@ def choose_C0():
     shock angles (shock rising toward the front, clear of the seat tube and
     top tube, ~160 mm travel, progressive leverage). Fixed so builds repeat."""
     global F
-    C0 = add(R, (0.060 * math.cos(math.radians(130)), 0.060 * math.sin(math.radians(130))))
-    F = add(C0, (SHOCK_EYE * math.cos(math.radians(2)), SHOCK_EYE * math.sin(math.radians(2))))  # near-flat shock
+    # shock front eye on the brace under the top tube, rear eye on the rocker
+    # (positions traced from the reference photo, then solved for a working linkage)
+    F = (0.220, 0.690)
+    C0 = add(F, (SHOCK_EYE * math.cos(math.radians(220)), SHOCK_EYE * math.sin(math.radians(220))))
     tab = sweep(C0, steps=90, theta_max=-0.55)
     ws = [s["wheel_travel"] for s in tab]
     st = [s["stroke"] for s in tab]
