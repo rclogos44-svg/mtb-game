@@ -277,12 +277,13 @@ def glove(n, s):
 # ================================================================== helmet (authored in head-bone frame)
 HELM_BLACK = mk.material("HelmetBlack", (0.012, 0.012, 0.014), roughness=0.22)
 HELM_MATTE = mk.material("HelmetMatte", (0.016, 0.016, 0.018), roughness=0.6)
-HELM_GREY = mk.material("HelmetGrey", (0.30, 0.31, 0.33), metallic=0.3, roughness=0.35)
+HELM_GREY = mk.material("HelmetGrey", (0.16, 0.165, 0.175), metallic=0.3, roughness=0.3)
+HELM_WHITE = mk.material("HelmetWhite", (0.85, 0.86, 0.86), roughness=0.3)
 HELM_VENT = mk.material("HelmetVent", (0.003, 0.003, 0.004), roughness=0.95)
 HELM_PAD = mk.material("HelmetPadding", (0.22, 0.22, 0.24), roughness=0.95)
 GOG_FRAME = mk.material("GoggleFrame", (0.03, 0.03, 0.035), roughness=0.5)
 GOG_LENS = mk.material("GoggleLens", (0.95, 0.38, 0.04), metallic=0.85, roughness=0.06)
-GOG_STRAP = mk.material("GoggleStrap", (0.06, 0.06, 0.065), roughness=0.8)
+GOG_STRAP = mk.material("GoggleStrap", (0.03, 0.03, 0.034), roughness=0.85)
 
 
 def _smooth(e0, e1, x):
@@ -296,22 +297,32 @@ def helmet():
     large vented peak screwed on at the temples, and goggles in the port."""
     p = Part("Helmet")
     Mr = REST["head"]
-    CY, CZ = 0.100, -0.012
-    RX, RY, RZ = 0.132, 0.160, 0.162
+    CY, CZ = 0.098, -0.018
+    RX, RY, RZ = 0.124, 0.152, 0.170
     C = Vector((0, CY, CZ))
     D = math.radians
 
     def shape(phi, th):
         """Outer shell in head-local coords (X lateral, Y up, Z forward).
-        phi: 0 = front; th: 0 = crown."""
+        phi: 0 = front; th: 0 = crown. A downhill lid: longer than it is wide,
+        a raised ridge down the middle of the crown, a lip flaring out at the
+        back of the neck, and a chin bar that juts forward and down."""
         x = RX * math.sin(th) * math.sin(phi)
         y = CY + RY * math.cos(th)
         z = CZ + RZ * math.sin(th) * math.cos(phi)
+        # centre ridge over the crown (front to back)
+        ridge = math.exp(-(x / 0.035) ** 2) * (1.0 - _smooth(D(55), D(95), th))
+        y += 0.010 * ridge
+        # rear lip: the back of the shell kicks out above the neck
+        back = max(0.0, -math.cos(phi))
+        lip = back ** 3 * _smooth(D(92), D(116), th)
+        z -= 0.016 * lip
+        y -= 0.006 * lip
         front = max(0.0, math.cos(phi))
         w = front ** 2 * _smooth(D(100), D(142), th)      # chin bar region
-        z += 0.058 * w + 0.016 * w * front ** 12
-        y -= 0.022 * w
-        x *= 1.0 - 0.20 * w
+        z += 0.060 * w + 0.018 * w * front ** 12
+        y -= 0.024 * w
+        x *= 1.0 - 0.22 * w
         return Vector((x, y, z))
 
     def grow(v, g):
@@ -319,7 +330,7 @@ def helmet():
         return C + d * (1.0 + g / d.length)
 
     def th_max(phi):
-        return D(118 + 34 * ((1 + math.cos(phi)) / 2) ** 1.6)
+        return D(116 + 36 * ((1 + math.cos(phi)) / 2) ** 1.6)
 
     def in_port(phi, th):
         return (abs(phi) / D(57)) ** 4 + (abs(th - D(88)) / D(17)) ** 4 < 1.0
@@ -380,25 +391,49 @@ def helmet():
                for a in range(n + 1) for b in range(n + 1) for g in (g0, g1)]
         p.hull(pts, mat, smooth=False)
 
-    # ---- vents: chin, cheeks, crown, rear
-    for ph in (-13, 0, 13):
-        slot(ph - 3.5, ph + 3.5, 118, 138)
+    # ---- vents: dark ports with a thin grey surround (crown, brow, chin, rear)
+    def port(ph, th, w, h):
+        slot(ph - w / 2 - 1.2, ph + w / 2 + 1.2, th - h / 2 - 1.2, th + h / 2 + 1.2, HELM_GREY, 0.0003, 0.0011, n=4)
+        slot(ph - w / 2, ph + w / 2, th - h / 2, th + h / 2, HELM_VENT, 0.0009, 0.0019, n=4)
     for sg in (-1, 1):
-        slot(sg * 30 - 5, sg * 30 + 5, 124, 140)
-        slot(sg * 18 - 6, sg * 18 + 6, 22, 44)
-        slot(sg * 44 - 6, sg * 44 + 6, 34, 50)
-        slot(sg * 165 - 6, sg * 165 + 6, 70, 96)
+        port(sg * 16, 30, 8, 16)
+        port(sg * 34, 42, 8, 14)
+        port(sg * 150, 52, 10, 16)
+        port(sg * 170, 70, 7, 12)
+        port(sg * 30, 132, 8, 12)
+    for ph in (-11, 0, 11):
+        port(ph, 128, 6, 16)
+    # ---- graphics: smooth dark-grey swooshes sweeping back along each side,
+    # each underlined by a white pinstripe (bands that follow the shell)
+    def band_on_shell(path, mat, g0=0.0006, g1=0.0016):
+        """path: list of (phi_deg, th_top_deg, th_bottom_deg)."""
+        secs = []
+        for ph, ta, tb in path:
+            secs.append([L(grow(shape(D(ph), D(ta)), g0)), L(grow(shape(D(ph), D(tb)), g0)),
+                         L(grow(shape(D(ph), D(tb)), g1)), L(grow(shape(D(ph), D(ta)), g1))])
+        p.loft(secs, mat, smooth=True)
+    for sg in (-1, 1):
+        sw, pin = [], []
+        for k in range(25):
+            t = k / 24.0
+            ph = 48 + 118 * t
+            mid = 126 - 34 * t                       # rises toward the back
+            half = 4.8 * (1.0 - t) + 1.2             # tapers to a point
+            sw.append((sg * ph, mid - half, mid + half))
+            pin.append((sg * ph, mid + half + 1.2, mid + half + 2.1))
+        band_on_shell(sw, HELM_GREY)
+        band_on_shell(pin, HELM_WHITE)
 
     # ---- peak
     NU, NV = 16, 7
     def peak_pt(u, v):
-        phi = D(80 * u)
-        th = D(63 + 15 * u * u)
-        base = grow(shape(phi, th), 0.002)
-        d = Vector((math.sin(phi) * 0.75, -0.02, math.cos(phi))).normalized()
-        L_ = 0.105 * (1.0 - 0.55 * u * u)
+        phi = D(52 * u)
+        th = D(66 + 3 * u * u)
+        base = grow(shape(phi, th), 0.003)
+        d = Vector((math.sin(phi) * 0.25, -0.30, math.cos(phi))).normalized()   # level when riding (head tilts back)
+        L_ = 0.095 * (1.0 - 0.50 * u * u)
         q = base + d * L_ * v
-        q.y += 0.010 * (1 - u * u) * v - 0.008 * v * v
+        q.y += 0.010 * (1 - u * u) ** 2 * v + 0.008 * v * v   # centre ridge, tip lifts a touch
         return q
     bm = bmesh.new()
     pg = [[bm.verts.new(peak_pt(-1 + 2 * a / NU, b / NV)) for b in range(NV + 1)] for a in range(NU + 1)]
@@ -430,7 +465,7 @@ def helmet():
     p.hull([L(peak_pt(-0.08 + 0.16 * a / 3, 0.15 + 0.7 * b / 3) + up * g)
             for a in range(4) for b in range(4) for g in (0.0032, 0.0048)], HELM_GREY, smooth=False)
     for sg in (-1, 1):                                       # peak screws at the temples
-        c = peak_pt(sg * 0.97, 0.12)
+        c = peak_pt(sg * 0.95, 0.10)
         n = (c - C).normalized()
         p.tube(L(c - n * 0.004), L(c + n * 0.006), 0.0075, mat=HELM_GREY, seg=12)
 
@@ -448,7 +483,7 @@ def helmet():
         return sec
     p.loft([gsec(D(-60 + 120 * k / 30), D(69.5), D(106.5), 0.950, 1.008) for k in range(31)], GOG_FRAME)
     p.loft([gsec(D(-51 + 102 * k / 24), D(76), D(100), 1.004, 1.012) for k in range(25)], GOG_LENS)
-    p.loft([[L(grow(q, 0.0)) for q in []] or gsec(D(58 + 244 * k / 40), D(83), D(94), 1.008, 1.024)
+    p.loft([[L(grow(q, 0.0)) for q in []] or gsec(D(58 + 244 * k / 40), D(85), D(93), 1.006, 1.016)
             for k in range(41)], GOG_STRAP)
     ob = p.build()
     vg = ob.vertex_groups.new(name="head")

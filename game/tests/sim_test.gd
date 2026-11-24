@@ -6,6 +6,7 @@ var bike: Bike
 var fails := 0
 var phase := "settle"
 var t0 := 0.0
+var line_speed := 6.0
 
 
 func check(name: String, ok: bool, detail: String) -> void:
@@ -31,6 +32,8 @@ func pilot(_b, _t: float) -> Dictionary:
 			return {"pedal": 1.0, "steer": 1.0 if k % 2 == 0 else -1.0, "hop": int(_t * 1.3) % 3 == 0}
 		"steerstill":
 			return {"steer": 1.0}
+		"line":
+			return {"pedal": 1.0 if _b.linear_velocity.length() < line_speed else 0.0, "steer": 0.25 * sin(_t * 2.3)}
 		"hopload":
 			return {"hop": true}
 	return {}
@@ -87,9 +90,15 @@ func _run(main) -> void:
 	check("still on two wheels", bike.rear.contact and bike.front.contact, "")
 
 	phase = "turnbrake"
-	await wait(1.5)
-	check("brakes mid-corner without crashing", absf(roll_deg()) < 40.0 and bike.rear.contact and bike.front.contact,
-		"roll %.1f, %.1f km/h" % [roll_deg(), bike.linear_velocity.length() * 3.6])
+	var tb_worst := 0.0
+	var tb_flipped := false
+	for i in int(1.5 * Engine.physics_ticks_per_second):
+		await physics_frame
+		tb_worst = maxf(tb_worst, absf(roll_deg()))
+		if bike.global_transform.basis.y.dot(Vector3.UP) < 0.3:
+			tb_flipped = true
+	check("brakes mid-corner without crashing", not tb_flipped and tb_worst < 45.0,
+		"max roll %.1f, now %.1f km/h" % [tb_worst, bike.linear_velocity.length() * 3.6])
 	phase = "straight"
 	await wait(3.0)
 	var v0 := bike.linear_velocity.length()
@@ -156,6 +165,29 @@ func _run(main) -> void:
 		was_flipped = flipped
 	check("jerky steering + hops: no tumbling", flips == 0 and max_twist <= 5.01, "flips %d, max roll/yaw rate %.1f rad/s" % [flips, max_twist])
 
+	# rollers and the drop, with a bit of steering, at several speeds: stay up
+	for spot in [["rollers", Vector3(5.0, 0.05, -6.0), 7.0], ["drop", Vector3(-5.0, 0.05, -12.0), 6.0]]:
+		for spd in [4.0, 6.0, 8.0, 10.0]:
+			phase = "line"
+			line_speed = spd
+			bike.reset_bike(Transform3D(Basis(), spot[1]))
+			await wait(0.05)
+			var crashed := false
+			var worst_roll := 0.0
+			var worst_at := Vector3.ZERO
+			var worst_hand := 0.0
+			var visn = bike.get_node("Visual")
+			for i in int(float(spot[2]) * Engine.physics_ticks_per_second):
+				await physics_frame
+				worst_hand = maxf(worst_hand, visn.hand_miss)
+				if absf(roll_deg()) > worst_roll:
+					worst_roll = absf(roll_deg())
+					worst_at = bike.global_position
+				if bike.global_transform.basis.y.dot(Vector3.UP) < 0.3:
+					crashed = true
+			check("%s at %d km/h stays up, hands on bars" % [spot[0], int(spd * 3.6)], not crashed and worst_roll < 40.0 and worst_hand < 0.02,
+				"max roll %.0f deg, hands up to %.1f cm off" % [worst_roll, worst_hand * 100])
+
 	# hands follow the bars when steering
 	phase = "settle"
 	bike.reset_bike(Transform3D(Basis(), Vector3(-80, 0.05, -80)))
@@ -179,8 +211,25 @@ func _run(main) -> void:
 	await process_frame
 	await process_frame
 	var e_turned: float = grip_err.call()
-	check("hands stay on the grips when steering", absf(e_turned - e_straight) < 0.01 and absf(bike.steer_angle) > 0.4,
-		"steer %.0f deg, wrist-to-grip %.3f m straight vs %.3f m turned" % [rad_to_deg(bike.steer_angle), e_straight, e_turned])
+	check("hands stay on the grips when steering", vis.hand_miss < 0.01 and absf(e_turned - e_straight) < 0.02 and absf(bike.steer_angle) > 0.4,
+		"steer %.0f deg, hands %.1f cm off target; wrist-to-grip %.3f m straight vs %.3f m turned" % [rad_to_deg(bike.steer_angle), vis.hand_miss * 100, e_straight, e_turned])
+
+	# feet stay on the pedals (ankle a shoe's length from the pedal axle)
+	phase = "pedal"
+	bike.reset_bike(Transform3D(Basis(), Vector3(-120, 0.05, 0)))
+	var worst_foot := 0.0
+	for i in 240:
+		await physics_frame
+		if i < 60:
+			continue
+		var v2 = bike.get_node("Visual")
+		for s in ["R", "L"]:
+			var fb: int = v2.skel.find_bone("foot." + s)
+			var ankle: Vector3 = v2.skel.get_bone_global_pose(fb).origin
+			var pedal: Vector3 = (v2.parts["Pedal" + s] as Node3D).global_position
+			var ped_local: Vector3 = (v2.model as Node3D).global_transform.affine_inverse() * pedal
+			worst_foot = maxf(worst_foot, ankle.distance_to(ped_local))
+	check("feet stay on the pedals", worst_foot < 0.20, "ankle up to %.2f m from the pedal axle" % worst_foot)
 
 	print("RESULT: %s (%d failed)" % ["OK" if fails == 0 else "FAILED", fails])
 	quit(1 if fails else 0)

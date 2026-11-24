@@ -13,8 +13,11 @@ extends RigidBody3D
 
 const GEO_PATH := "res://assets/geometry.json"
 const TYRE_TUBE := 0.0275          # tyre cross-section radius (m)
-const TYRE_RATE := 110000.0        # tyre vertical stiffness once the suspension bottoms (N/m)
+const TYRE_RATE := 110000.0
+const TYRE_RELAX_LEN := 0.25      # m        # tyre vertical stiffness once the suspension bottoms (N/m)
 const GRAV := 9.81
+## Ray angles round the tyre from straight down (+ = ahead of the axle).
+const WHEEL_RAY_ANGLES := [-0.9, -0.6, -0.35, -0.15, 0.0, 0.15, 0.35, 0.6, 0.9]
 
 @export_group("Rider")
 @export var rider_mass := 75.0
@@ -37,7 +40,9 @@ const GRAV := 9.81
 @export var air_roll_stiffness := 450.0
 @export var air_roll_damping := 90.0
 @export var air_yaw_damping := 30.0
-@export var air_pitch_damping := 12.0
+@export var air_pitch_stiffness := 220.0
+@export var air_pitch_damping := 40.0
+@export var one_wheel_recovery := 900.0
 ## A rider can't spin the bike faster than this about its roll / yaw axes (rad/s).
 @export var max_twist_rate := 5.0
 
@@ -93,6 +98,7 @@ class Wheel:
 	var skid := false
 	var max_s := 0.0          ## deepest travel used (for the HUD)
 	var brake_fx := 0.0       ## brake force applied this step (N)
+	var fy := 0.0             ## cornering force, lagged by the relaxation length (N)
 
 
 static func uv3(p) -> Vector3:
@@ -208,6 +214,8 @@ func _physics_process(dt: float) -> void:
 	if grounded:
 		# on one wheel the lone tyre can't hold a full lean, so ease off
 		_lean_assist(up_b, fwd_b, 1.0 if both else 0.35)
+		if not both:
+			_one_wheel_balance(fwd_b, right_b)
 		# the rider's arms and legs soak up fast pitching (braking dive, landings)
 		apply_torque(right_b * (-angular_velocity.dot(right_b) * rider_pitch_damping))
 	else:
@@ -222,25 +230,41 @@ func _physics_process(dt: float) -> void:
 
 func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vector3,
 		is_rear: bool, dt: float, com_g: Vector3, fwd_b: Vector3) -> void:
+	# Probe the ground with a fan of rays round the lower half of the tyre, so
+	# a bump is felt by the leading edge of the tyre (as on a real wheel), not
+	# only once it is under the axle. For each hit, work out how far the axle
+	# must rise along the suspension axis for the tyre to just touch that point.
+	var space := get_world_3d().direct_space_state
 	var down := -global_transform.basis.y
-	var q := PhysicsRayQueryParameters3D.create(axle_ext - down * 0.3,
-			axle_ext + down * (w.travel + wheel_r + 0.4))
-	q.exclude = [get_rid()]
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-
+	var wfwd := down.cross(wheel_axis).normalized()          # wheel's forward, in its plane
+	var top := axle_ext + sus_axis * (w.travel + 0.06)        # rays start above full travel
 	var overlap := -1.0
 	var n := Vector3.UP
 	var a_dot_n := 1.0
 	var n_ip := Vector3.ZERO
-	if not hit.is_empty():
-		n = hit["normal"]
-		n_ip = n - wheel_axis * n.dot(wheel_axis)      # ground normal within the wheel plane
-		var c := n_ip.length()
-		var h_ext: float = (axle_ext - (hit["position"] as Vector3)).dot(n)
-		var h_req := (wheel_r - TYRE_TUBE) * c + TYRE_TUBE
-		a_dot_n = sus_axis.dot(n)
-		if a_dot_n > 0.25:
-			overlap = (h_req - h_ext) / a_dot_n
+	for ang in WHEEL_RAY_ANGLES:
+		var dir := (down * cos(ang) + wfwd * sin(ang)).normalized()
+		var q := PhysicsRayQueryParameters3D.create(top, axle_ext + dir * (wheel_r + 0.35))
+		q.exclude = [get_rid()]
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			continue
+		var hp: Vector3 = hit["position"]
+		var hn: Vector3 = hit["normal"]
+		var adn := sus_axis.dot(hn)
+		if adn < 0.25:
+			continue                                   # a wall: the frame collider handles that
+		# tyre (a torus) against the tangent plane at this hit: exact on flat
+		# ground at any lean, and on curved bumps it's touched by the leading edge
+		var nip := hn - wheel_axis * hn.dot(wheel_axis)
+		var h_req := (wheel_r - TYRE_TUBE) * clampf(nip.length(), 0.0, 1.0) + TYRE_TUBE
+		var h_ext := (axle_ext - hp).dot(hn)
+		var t := (h_req - h_ext) / adn                  # axle rise needed to sit on it
+		if t > overlap:
+			overlap = t
+			n = hn
+			n_ip = nip
+			a_dot_n = adn
 
 	# the wheel can only drop out as fast as rebound damping lets it
 	var s_min := maxf(w.s - _free_extension_speed(w, is_rear) * dt - 0.0005, 0.0)
@@ -256,6 +280,7 @@ func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vec
 	if not w.contact:
 		w.load = 0.0
 		w.brake_fx = 0.0
+		w.fy = 0.0
 		w.omega *= 0.995
 		w.spin += w.omega * dt
 		return
@@ -268,8 +293,8 @@ func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vec
 	var N := clampf(f_axis / a_dot_n, 0.0, 14000.0)
 	w.load = N
 	w.normal = n
-	var nip := n_ip.normalized() if n_ip.length() > 0.01 else n
-	w.point = w.axle - nip * (wheel_r - TYRE_TUBE) - n * TYRE_TUBE
+	var nipn := n_ip.normalized() if n_ip.length() > 0.01 else n
+	w.point = w.axle - nipn * (wheel_r - TYRE_TUBE) - n * TYRE_TUBE
 
 	# tyre forces in the contact patch frame
 	var fwd := n.cross(wheel_axis).normalized()
@@ -282,7 +307,12 @@ func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vec
 	# cornering force from slip angle (~0.12 of load per degree, saturating at
 	# the grip limit near 8-9 degrees); low speeds use a floor so it stays stable
 	var slip := v_lat / maxf(absf(v_long), 1.5)
-	var fy := -clampf(slip * 7.0, -1.0, 1.0) * lim
+	var fy_target := -clampf(slip * 7.0, -1.0, 1.0) * lim
+	# a tyre builds cornering force over ~25 cm of rolling (relaxation length),
+	# so landings and sudden loads don't snap the bike round
+	var relax := clampf((absf(v_long) + 1.0) * dt / TYRE_RELAX_LEN, 0.0, 1.0)
+	w.fy = lerpf(w.fy, fy_target, relax)
+	var fy := clampf(w.fy, -lim, lim)
 	var fx := -signf(v_long) * minf(0.012 * N, absf(v_long) * m_eff / dt)       # rolling resistance
 	if is_rear and in_pedal > 0.0:
 		var cadence_fade := 1.0 - clampf((cadence_rpm - 115.0) / 35.0, 0.0, 1.0)
@@ -329,16 +359,40 @@ func _air_control(up_b: Vector3, fwd_b: Vector3, right_b: Vector3) -> void:
 	var w := angular_velocity
 	apply_torque(fwd_b * (air_roll_stiffness * level_err - air_roll_damping * w.dot(fwd_b)))
 	apply_torque(up_b * (-air_yaw_damping * w.dot(up_b)))
-	apply_torque(right_b * (-air_pitch_damping * w.dot(right_b)))
+	# rider keeps the bike lined up with the flight path (soft, so flips can override)
+	var pitch_err := 0.0
+	var v := linear_velocity
+	if v.length() > 2.0:
+		pitch_err = fwd_b.cross(v.normalized()).dot(right_b)
+	apply_torque(right_b * (air_pitch_stiffness * pitch_err - air_pitch_damping * w.dot(right_b)))
+
+
+## On one wheel the rider stops a wheelie or a nose-wheelie from going over:
+## past ~12 degrees off the ground's slope they push the bike back toward level.
+func _one_wheel_balance(fwd_b: Vector3, right_b: Vector3) -> void:
+	var w := rear if rear.contact else front
+	var tilt := fwd_b.dot(w.normal)            # + nose up relative to the ground under the wheel
+	var lim := sin(deg_to_rad(12.0))
+	var excess := 0.0
+	if rear.contact and tilt > lim:
+		excess = tilt - lim
+	elif front.contact and tilt < -lim:
+		excess = tilt + lim
+	if excess != 0.0:
+		var pitch_rate := angular_velocity.dot(right_b)
+		apply_torque(right_b * (-one_wheel_recovery * excess - 60.0 * pitch_rate))
 
 
 func _lean_assist(up_b: Vector3, fwd_b: Vector3, strength := 1.0) -> void:
 	## Holds the bike at the lean a real rider would use for the current turn.
+	# lean for the turn being steered (bicycle geometry), not for whatever yaw a
+	# bump just caused: tan(lean) = v^2 tan(steer) / (g * wheelbase)
 	var v := linear_velocity
-	var v_h := Vector3(v.x, 0.0, v.z)
-	var yaw_rate := angular_velocity.dot(Vector3.UP)
-	var a_c := (Vector3.UP * yaw_rate).cross(v_h)
-	var target_up := (Vector3.UP * GRAV + a_c).normalized()
+	var v_f := v.dot(fwd_b)
+	var wb: float = geo["wheelbase"]
+	var a_lat := v_f * v_f * tan(steer_angle) / wb
+	var left := Vector3.UP.cross(Vector3(fwd_b.x, 0.0, fwd_b.z)).normalized()
+	var target_up := (Vector3.UP * GRAV + left * a_lat).normalized()
 	var err := up_b.cross(target_up).dot(fwd_b)
 	var roll_rate := angular_velocity.dot(fwd_b)
 	apply_torque(fwd_b * strength * (lean_stiffness * err - lean_damping * roll_rate))

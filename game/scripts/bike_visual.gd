@@ -14,6 +14,8 @@ var anim: AnimationPlayer
 var skel: Skeleton3D
 var arm_bones := []      # [[upperarm, forearm, hand], ...]
 var anim_len := 2.0
+var pedal_anim: Animation
+var pose_tracks := []        # [track, bone, type]
 var g: Dictionary
 var ring_r := 0.06
 var cog_r := 0.026
@@ -33,23 +35,30 @@ func _ready() -> void:
 		rest[n] = node.transform
 	ring_r = float(g["chainring_teeth"]) * 0.0127 / TAU
 	cog_r = float(g["cog_teeth"]) * 0.0127 / TAU
-	anim = $Rider.find_child("AnimationPlayer", true, false)
 	for n in $Rider.find_children("*", "Skeleton3D", true, false):
 		skel = n
+	anim = $Rider.find_child("AnimationPlayer", true, false)
 	if skel:
 		for s in ["R", "L"]:
 			var ids := [skel.find_bone("upperarm." + s), skel.find_bone("forearm." + s), skel.find_bone("hand." + s)]
 			if not ids.has(-1):
 				arm_bones.append(ids)
 	if anim:
-		# we drive the animation ourselves (from the crank angle), then fix up the arms
+		# we sample the pedalling animation ourselves (at the crank angle) every
+		# tick, so each frame starts from the clean pose before the body is adjusted
 		anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+		anim.active = false
 		var names := anim.get_animation_list()
 		var pick := "Pedal" if anim.has_animation("Pedal") else (names[0] if names.size() > 0 else "")
 		if pick != "":
-			anim.play(pick)
-			anim.speed_scale = 0.0
-			anim_len = anim.get_animation(pick).length
+			pedal_anim = anim.get_animation(pick)
+			anim_len = pedal_anim.length
+			if skel:
+				for ti in pedal_anim.get_track_count():
+					var bone := skel.find_bone(String(pedal_anim.track_get_path(ti).get_concatenated_subnames()))
+					var ty := pedal_anim.track_get_type(ti)
+					if bone >= 0 and (ty == Animation.TYPE_POSITION_3D or ty == Animation.TYPE_ROTATION_3D):
+						pose_tracks.append([ti, bone, ty])
 	_shadows($Rider)
 	_shadows(model)
 
@@ -69,12 +78,13 @@ static func uv(p) -> Vector2:
 	return Vector2(p[0], p[1])
 
 
-func _process(_dt: float) -> void:
+func _physics_process(dt: float) -> void:
+	# on the physics tick, so the bike's interpolation carries every part smoothly
 	if bike == null or bike.linkage == null:
 		return
 	_rear()
 	_front()
-	_drivetrain()
+	_drivetrain(dt)
 
 
 func _set_rot(name: String, angle: float, pos = null) -> void:
@@ -131,7 +141,7 @@ func _front() -> void:
 		parts["FrontWheel"].transform = t3
 
 
-func _drivetrain() -> void:
+func _drivetrain(dt: float) -> void:
 	var a := bike.crank_angle
 	if parts.has("Cranks"):
 		var t: Transform3D = rest["Cranks"]
@@ -153,47 +163,171 @@ func _drivetrain() -> void:
 	_chain("ChainTop", bb + Vector2(0, ring_r + 0.002), axle_now + Vector2(0, cog_r + 0.002))
 	_chain("ChainBot", bb + Vector2(0, -ring_r - 0.002), lo_now + Vector2(-0.003, -0.018))
 	# rider follows the crank
-	if anim:
-		anim.seek(fposmod(a, TAU) / TAU * anim_len, true)
-	_arms_follow_bars()
+	if pedal_anim and skel:
+		var t := fposmod(a, TAU) / TAU * anim_len
+		# start from the rest pose: the animation only keys rotations (and the
+		# hips' position), so anything the body solver moved must be cleared
+		skel.reset_bone_poses()
+		for tr in pose_tracks:
+			if tr[2] == Animation.TYPE_POSITION_3D:
+				skel.set_bone_pose_position(tr[1], pedal_anim.position_track_interpolate(tr[0], t))
+			else:
+				skel.set_bone_pose_rotation(tr[1], pedal_anim.rotation_track_interpolate(tr[0], t))
+	_rider_body(dt)
 
 
-## The baked animation has the hands on the bars with the steering straight.
-## When the bars turn, move each wrist with its grip and re-solve the arm as a
-## two-bone chain (keeping the elbow on the same side it bends to).
-func _arms_follow_bars() -> void:
-	if skel == null or not parts.has("Steer") or arm_bones.is_empty():
+## Rider body. The baked animation is the pedalling stroke with the bike level
+## and the bars straight. On top of it the hips are a sprung, damped mass that
+## reacts to the bike (sinking on landings, surging and bracing under braking,
+## crouching to load a hop), then the legs are re-solved so the feet stay on
+## the pedals and the arms so the hands stay on the (steered) grips.
+var hip_off := Vector3.ZERO          # in the bike's local frame (m)
+var hip_vel := Vector3.ZERO
+var _v_prev := Vector3.ZERO
+var leg_bones := []                  # [[thigh, shin, foot], ...]
+var hips_bone := -1
+var spine_bone := -1
+var foot_miss := 0.0
+var hand_miss := 0.0                 # how far the hands ended from the grips last tick (m)
+
+const HIP_FREQ := 1.7                # Hz, rider's legs/arms as a suspension
+const HIP_DAMP := 0.65
+const HIP_MIN := Vector3(-0.05, -0.13, -0.08)
+const HIP_MAX := Vector3(0.05, 0.05, 0.14)
+
+
+func _rider_body(dt: float) -> void:
+	if skel == null:
 		return
-	var D: Transform3D = parts["Steer"].transform * (rest["Steer"] as Transform3D).affine_inverse()
-	if absf(bike.steer_angle) < 0.002:
+	if hips_bone < 0:
+		hips_bone = skel.find_bone("hips")
+		spine_bone = skel.find_bone("spine")
+		for s in ["R", "L"]:
+			var ids := [skel.find_bone("thigh." + s), skel.find_bone("shin." + s), skel.find_bone("foot." + s)]
+			if not ids.has(-1):
+				leg_bones.append(ids)
+		_v_prev = bike.linear_velocity
+	if hips_bone < 0:
 		return
+
+	# --- hips as a spring-mass riding on the bike
+	var basis_inv := bike.global_transform.basis.inverse()
+	var acc := (bike.linear_velocity - _v_prev) / maxf(dt, 1e-4)
+	_v_prev = bike.linear_velocity
+	var felt := basis_inv * (acc - Vector3(0.0, -Bike.GRAV, 0.0))   # specific force, bike frame
+	var extra := felt - Vector3(0.0, Bike.GRAV, 0.0)
+	if not (bike.rear.contact or bike.front.contact):
+		extra = Vector3.ZERO                                           # weightless in the air
+	extra = extra.clamp(Vector3(-25, -40, -25), Vector3(25, 40, 25))
+	var target := Vector3.ZERO
+	target.y -= 0.11 * bike.hop_charge                                  # crouch to load a hop...
+	target.z += 0.07 * bike.hop_charge                                  # ...down and back, behind the saddle
+	target.z += 0.10 * bike.weight_back                                 # hips back under braking
+	if not (bike.rear.contact or bike.front.contact):
+		target.y -= 0.06                                                # ready position in the air
+	var w := TAU * HIP_FREQ
+	var a := -w * w * (hip_off - target) - 2.0 * HIP_DAMP * w * hip_vel - extra * 0.55
+	hip_vel += a * dt
+	hip_off += hip_vel * dt
+	var clamped := hip_off.clamp(HIP_MIN, HIP_MAX)
+	if clamped != hip_off:
+		hip_vel *= 0.3
+		hip_off = clamped
+
+	# --- remember where the animation put the hands and feet, then move the hips
+	var feet := []
+	for ids in leg_bones:
+		feet.append(skel.get_bone_global_pose(ids[2]))
+	var hands := []
 	for ids in arm_bones:
-		var ua: int = ids[0]
-		var fa: int = ids[1]
-		var hd: int = ids[2]
-		var g_ua := skel.get_bone_global_pose(ua)
-		var g_fa := skel.get_bone_global_pose(fa)
-		var g_hd := skel.get_bone_global_pose(hd)
-		var s := g_ua.origin
-		var e0 := g_fa.origin
-		var w0 := g_hd.origin
-		var wt := D * w0
-		var l1 := s.distance_to(e0)
-		var l2 := e0.distance_to(w0)
-		var d := wt - s
-		var dist := clampf(d.length(), absf(l1 - l2) + 0.001, l1 + l2 - 0.001)
-		var dir := d.normalized()
-		var cos_a := clampf((l1 * l1 + dist * dist - l2 * l2) / (2.0 * l1 * dist), -1.0, 1.0)
-		var pole := e0 - s
-		pole = (pole - dir * pole.dot(dir)).normalized()
-		var e1 := s + dir * (l1 * cos_a) + pole * (l1 * sqrt(1.0 - cos_a * cos_a))
-		var w1 := s + dir * dist
-		var r1 := Basis(Quaternion((e0 - s).normalized(), (e1 - s).normalized()))
-		skel.set_bone_global_pose(ua, Transform3D(r1 * g_ua.basis, s))
-		var fa_dir0 := (r1 * (w0 - e0)).normalized()
-		var r2 := Basis(Quaternion(fa_dir0, (w1 - e1).normalized()))
-		skel.set_bone_global_pose(fa, Transform3D(r2 * r1 * g_fa.basis, e1))
-		skel.set_bone_global_pose(hd, Transform3D(D.basis * g_hd.basis, w1))
+		hands.append(skel.get_bone_global_pose(ids[2]))
+	var hp := skel.get_bone_global_pose(hips_bone)
+	# skeleton space is the bike model's space (both sit at the Visual origin)
+	var local_off := Vector3(hip_off.x, hip_off.y, hip_off.z + maxf(-hip_off.y, 0.0) * 0.5)
+	hp.origin += local_off
+	skel.set_bone_global_pose(hips_bone, hp)
+	var D := Transform3D.IDENTITY
+	if parts.has("Steer"):
+		D = parts["Steer"].transform * (rest["Steer"] as Transform3D).affine_inverse()
+	if spine_bone >= 0:
+		# Upper body: twist with the bars, and fold forward at the hips only as
+		# much as needed for both hands to reach their grips (as a rider does
+		# when crouching low or reaching for a turned bar).
+		var sp0 := skel.get_bone_global_pose(spine_bone)
+		var twist := Basis(Vector3.UP, bike.steer_angle * 0.9)
+		var fold := clampf(hip_off.y * 0.8, -0.2, 0.05)
+		for k in 10:
+			var sp := sp0
+			sp.basis = (twist * Basis(Vector3.RIGHT, fold) * sp0.basis).orthonormalized()
+			skel.set_bone_global_pose(spine_bone, sp)
+			var worst := 0.0
+			for i in arm_bones.size():
+				var ids: Array = arm_bones[i]
+				var sh := skel.get_bone_global_pose(ids[0]).origin
+				var el := skel.get_bone_global_pose(ids[1]).origin
+				var wr := skel.get_bone_global_pose(ids[2]).origin
+				var reach := sh.distance_to(el) + el.distance_to(wr)
+				var h: Transform3D = hands[i]
+				worst = maxf(worst, sh.distance_to(D * h.origin) / reach)
+			if worst < 0.97 or fold < -0.7:
+				break
+			fold -= 0.07
+
+	# --- legs: feet back onto the pedals
+	foot_miss = 0.0
+	for i in leg_bones.size():
+		var f: Transform3D = feet[i]
+		foot_miss = maxf(foot_miss, _two_bone(leg_bones[i], f.origin, f.basis))
+	# --- arms: hands onto the grips, which turn with the steering
+	hand_miss = 0.0
+	for i in arm_bones.size():
+		var h: Transform3D = hands[i]
+		hand_miss = maxf(hand_miss, _two_bone(arm_bones[i], D * h.origin, D.basis * h.basis))
+
+
+## Two-bone IK in skeleton space: bend a-b-c so c lands on `target`, keeping the
+## middle joint on the side it already bends to; c takes `end_basis`.
+func _two_bone(ids: Array, target: Vector3, end_basis: Basis) -> float:
+	var ia: int = ids[0]
+	var ib: int = ids[1]
+	var ic: int = ids[2]
+	var ga := skel.get_bone_global_pose(ia)
+	var gb := skel.get_bone_global_pose(ib)
+	var gc := skel.get_bone_global_pose(ic)
+	var s := ga.origin
+	var m0 := gb.origin
+	var e0 := gc.origin
+	var l1 := s.distance_to(m0)
+	var l2 := m0.distance_to(e0)
+	var d := target - s
+	if l1 < 1e-4 or l2 < 1e-4 or d.length() < 1e-4:
+		return 0.0
+	var dist := clampf(d.length(), absf(l1 - l2) + 0.002, l1 + l2 - 0.002)
+	var dir := d.normalized()
+	var cos_a := clampf((l1 * l1 + dist * dist - l2 * l2) / (2.0 * l1 * dist), -1.0, 1.0)
+	var pole := m0 - s
+	pole -= dir * pole.dot(dir)
+	if pole.length() < 1e-4:
+		return 0.0
+	pole = pole.normalized()
+	var m1 := s + dir * (l1 * cos_a) + pole * (l1 * sqrt(1.0 - cos_a * cos_a))
+	var e1 := s + dir * dist
+	var r1 := _arc(m0 - s, m1 - s)
+	var r2 := _arc(r1 * (e0 - m0), e1 - m1)
+	if not (r1.is_finite() and r2.is_finite() and m1.is_finite()):
+		return 0.0
+	skel.set_bone_global_pose(ia, Transform3D((r1 * ga.basis).orthonormalized(), s))
+	skel.set_bone_global_pose(ib, Transform3D((r2 * r1 * gb.basis).orthonormalized(), m1))
+	skel.set_bone_global_pose(ic, Transform3D(end_basis.orthonormalized(), e1))
+	return e1.distance_to(target)
+
+
+static func _arc(from: Vector3, to: Vector3) -> Basis:
+	var a := from.normalized()
+	var b := to.normalized()
+	if a.dot(b) > 0.99999:
+		return Basis.IDENTITY
+	return Basis(Quaternion(a, b))
 
 
 func _chain(name: String, a2: Vector2, b2: Vector2) -> void:

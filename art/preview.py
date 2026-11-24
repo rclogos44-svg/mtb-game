@@ -64,3 +64,4 @@ if arm is not None:
     hc = arm.matrix_world @ (hb.matrix @ mathutils.Vector((0, 0.09, 0)))
     shoot(hc + mathutils.Vector((0.45, 0.55, 0.12)), hc, 50, "helmet", ortho=0.42)
     shoot(hc + mathutils.Vector((0.7, 0.0, 0.05)), hc, 50, "helmetside", ortho=0.42)
+    shoot(hc + mathutils.Vector((0.25, -0.75, 0.25)), hc, 50, "helmetback", ortho=0.42)

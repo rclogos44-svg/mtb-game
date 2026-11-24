@@ -145,11 +145,11 @@ func _features() -> void:
 	# a line of rollers straight ahead of the spawn, off to the right
 	for i in range(5):
 		var r := CSGCylinder3D.new()
-		r.radius = 2.6
+		r.radius = 5.0
 		r.height = 3.5
-		r.sides = 48
+		r.sides = 96
 		r.rotation_degrees = Vector3(0, 0, 90)
-		r.position = Vector3(5.0, -2.6 + 0.32, -18.0 - i * 4.2)
+		r.position = Vector3(5.0, -5.0 + 0.35, -18.0 - i * 4.6)
 		r.use_collision = true
 		r.material = _dirt()
 		add_child(r)
@@ -167,5 +167,5 @@ func _features() -> void:
 	ramp.material = _dirt()
 	# polygon is in XY, extruded along -Z: turn it so it climbs toward -Z
 	ramp.rotation_degrees = Vector3(0, 90, 0)
-	ramp.position = Vector3(-6.75, 0, -23.0)
+	ramp.position = Vector3(-3.25, 0, -23.0)   # extrudes toward -X, under the deck
 	add_child(ramp)
