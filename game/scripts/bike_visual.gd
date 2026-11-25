@@ -193,7 +193,7 @@ var hand_miss := 0.0                 # how far the hands ended from the grips la
 const HIP_FREQ := 1.7                # Hz, rider's legs/arms as a suspension
 const HIP_DAMP := 0.65
 const HIP_MIN := Vector3(-0.05, -0.13, -0.08)
-const HIP_MAX := Vector3(0.05, 0.05, 0.14)
+const HIP_MAX := Vector3(0.05, 0.05, 0.24)
 
 
 func _rider_body(dt: float) -> void:
@@ -220,8 +220,8 @@ func _rider_body(dt: float) -> void:
 		extra = Vector3.ZERO                                           # weightless in the air
 	extra = extra.clamp(Vector3(-25, -40, -25), Vector3(25, 40, 25))
 	var target := Vector3.ZERO
-	target.y -= 0.11 * bike.hop_charge                                  # crouch to load a hop...
-	target.z += 0.07 * bike.hop_charge                                  # ...down and back, behind the saddle
+	target.y -= 0.09 * bike.hop_charge                                  # crouch to load a hop...
+	target.z += 0.17 * bike.hop_charge                                  # ...down and back, behind the saddle
 	target.z += 0.10 * bike.weight_back                                 # hips back under braking
 	if not (bike.rear.contact or bike.front.contact):
 		target.y -= 0.06                                                # ready position in the air
@@ -277,17 +277,24 @@ func _rider_body(dt: float) -> void:
 	foot_miss = 0.0
 	for i in leg_bones.size():
 		var f: Transform3D = feet[i]
-		foot_miss = maxf(foot_miss, _two_bone(leg_bones[i], f.origin, f.basis))
+		# knees always point forward (and a touch out), so a nearly straight
+		# standing leg can't flip its knee from frame to frame
+		var hip_x := skel.get_bone_global_pose(leg_bones[i][0]).origin.x
+		var knee_dir := Vector3(signf(hip_x) * 0.12, 0.0, -1.0)
+		foot_miss = maxf(foot_miss, _two_bone(leg_bones[i], f.origin, f.basis, knee_dir, 1.0))
 	# --- arms: hands onto the grips, which turn with the steering
 	hand_miss = 0.0
 	for i in arm_bones.size():
 		var h: Transform3D = hands[i]
-		hand_miss = maxf(hand_miss, _two_bone(arm_bones[i], D * h.origin, D.basis * h.basis))
+		var sh_x := skel.get_bone_global_pose(arm_bones[i][0]).origin.x
+		var elbow_dir := Vector3(signf(sh_x) * 0.8, 0.0, 0.6)    # elbows out and back
+		hand_miss = maxf(hand_miss, _two_bone(arm_bones[i], D * h.origin, D.basis * h.basis, elbow_dir, 0.5))
 
 
 ## Two-bone IK in skeleton space: bend a-b-c so c lands on `target`, keeping the
-## middle joint on the side it already bends to; c takes `end_basis`.
-func _two_bone(ids: Array, target: Vector3, end_basis: Basis) -> float:
+## middle joint toward `hint` (blended by `hint_w` with the side it already
+## bends to); c takes `end_basis`.
+func _two_bone(ids: Array, target: Vector3, end_basis: Basis, hint := Vector3.ZERO, hint_w := 0.0) -> float:
 	var ia: int = ids[0]
 	var ib: int = ids[1]
 	var ic: int = ids[2]
@@ -307,6 +314,11 @@ func _two_bone(ids: Array, target: Vector3, end_basis: Basis) -> float:
 	var cos_a := clampf((l1 * l1 + dist * dist - l2 * l2) / (2.0 * l1 * dist), -1.0, 1.0)
 	var pole := m0 - s
 	pole -= dir * pole.dot(dir)
+	var hp := hint - dir * hint.dot(dir)
+	if pole.length() > 1e-4:
+		pole = pole.normalized()
+	if hint_w > 0.0 and hp.length() > 1e-3:
+		pole = pole * (1.0 - hint_w) + hp.normalized() * hint_w
 	if pole.length() < 1e-4:
 		return 0.0
 	pole = pole.normalized()

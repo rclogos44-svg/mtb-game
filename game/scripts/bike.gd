@@ -13,7 +13,11 @@ extends RigidBody3D
 
 const GEO_PATH := "res://assets/geometry.json"
 const TYRE_TUBE := 0.0275          # tyre cross-section radius (m)
-const TYRE_RATE := 110000.0
+const TYRE_RATE := 120000.0       # tyre vertical stiffness (N/m), ~120 N/mm for a 2.4" tyre
+const TYRE_DAMP := 400.0
+const REAR_UNSPRUNG := 4.5        # kg at the axle: wheel, tyre, cassette, part of the swingarm
+const FRONT_UNSPRUNG := 3.5       # kg: wheel, tyre, fork lowers
+const WHEEL_SUBSTEPS := 8
 const TYRE_RELAX_LEN := 0.25      # m
 const MAX_LEAN := 0.47            # rad (27 deg), only reached in a held, sharp turn
 const STEER_LAT_G_TAP := 0.10     # g of cornering when the key has just been pressed
@@ -21,7 +25,7 @@ const STEER_LAT_G_HELD := 0.50    # g once it has been held for STEER_BUILD_TIME
 const STEER_BUILD_TIME := 1.5     # s
 const LEAN_RATE := 1.3            # rad/s the rider can roll the bike
 const MAX_LEAN_TORQUE := 1300.0   # N m
-const MAX_ROLL_RATE_GROUND := 1.8 # rad/s        # tyre vertical stiffness once the suspension bottoms (N/m)
+const MAX_ROLL_RATE_GROUND := 1.8 # rad/s
 const GRAV := 9.81
 ## Ray angles round the tyre from straight down (+ = ahead of the axle).
 const WHEEL_RAY_ANGLES := [-0.9, -0.6, -0.35, -0.15, 0.0, 0.15, 0.35, 0.6, 0.9]
@@ -109,6 +113,8 @@ class Wheel:
 	var max_s := 0.0          ## deepest travel used (for the HUD)
 	var brake_fx := 0.0       ## brake force applied this step (N)
 	var fy := 0.0             ## cornering force, lagged by the relaxation length (N)
+	var ov_prev := 0.0        ## ground height (as axle travel) last tick
+	var had_ground := false
 
 
 static func uv3(p) -> Vector3:
@@ -286,20 +292,68 @@ func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vec
 		var h_req := (wheel_r - TYRE_TUBE) * clampf(nip.length(), 0.0, 1.0) + TYRE_TUBE
 		var h_ext := (axle_ext - hp).dot(hn)
 		var t := (h_req - h_ext) / adn                  # axle rise needed to sit on it
+		# ...but a plane is only right where the surface carries on: off the
+		# back of a rock its steep face would "extend" under the wheel and fling
+		# the bike. So also take the rise that just clears the hit point itself
+		# (point on the tyre's circle) and use whichever is smaller.
+		var c := hp - axle_ext
+		c -= wheel_axis * c.dot(wheel_axis)
+		var a_ip := sus_axis - wheel_axis * sus_axis.dot(wheel_axis)
+		var aa := a_ip.length_squared()
+		var ca := c.dot(a_ip)
+		var disc := ca * ca - aa * (c.length_squared() - wheel_r * wheel_r)
+		if disc < 0.0:
+			continue                                   # this point never touches the tyre
+		t = minf(t, (ca + sqrt(disc)) / aa)
 		if t > overlap:
 			overlap = t
 			n = hn
 			n_ip = nip
 			a_dot_n = adn
 
-	# the wheel can only drop out as fast as rebound damping lets it
-	var s_min := maxf(w.s - _free_extension_speed(w, is_rear) * dt - 0.0005, 0.0)
-	var s_new := s_min
-	w.contact = overlap > s_min
-	if w.contact:
-		s_new = minf(overlap, w.travel)
-	w.s_vel = (s_new - w.s) / dt
-	w.s = s_new
+	# The wheel is a real unsprung mass between the tyre (a stiff spring on the
+	# ground) and the suspension. Integrated in small substeps, so over a crest
+	# it drops out under the spring (held back by rebound damping) and on the
+	# way back it meets the ground through the tyre instead of snapping onto it.
+	var m_u := REAR_UNSPRUNG if is_rear else FRONT_UNSPRUNG
+	var has_ground := overlap > -0.5
+	var ov_prev := w.ov_prev if w.had_ground else overlap
+	w.had_ground = has_ground
+	w.ov_prev = overlap
+	var hs := dt / WHEEL_SUBSTEPS
+	var f_body := 0.0
+	var f_tyre_sum := 0.0
+	var s := w.s
+	var sv := w.s_vel
+	for k in WHEEL_SUBSTEPS:
+		var ov := lerpf(ov_prev, overlap, float(k + 1) / WHEEL_SUBSTEPS)
+		var f_sus := _wheel_force(w, is_rear, s, sv)
+		var f_t := 0.0
+		if has_ground:
+			var pen := ov - s
+			if pen > 0.0:
+				var pen_rate := (overlap - ov_prev) / dt - sv
+				f_t = maxf(TYRE_RATE * minf(pen, 0.04) + TYRE_DAMP * pen_rate, 0.0)
+		sv += (f_t - f_sus) / m_u * hs
+		s += sv * hs
+		var f_b := f_sus
+		if s >= w.travel:
+			# bottomed out: the wheel rides on the frame, the tyre takes the hit
+			s = w.travel
+			if sv > 0.0:
+				f_b += sv * m_u / hs
+				sv = 0.0
+			f_b = maxf(f_b, f_t)
+		elif s <= 0.0:
+			s = 0.0
+			sv = maxf(sv, 0.0)
+		f_body += f_b
+		f_tyre_sum += f_t
+	w.s = s
+	w.s_vel = sv
+	f_body /= WHEEL_SUBSTEPS
+	var f_tyre := f_tyre_sum / WHEEL_SUBSTEPS
+	w.contact = f_tyre > 1.0
 	w.max_s = maxf(w.max_s, w.s)
 	w.axle = axle_ext + sus_axis * w.s
 	w.skid = false
@@ -309,14 +363,12 @@ func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vec
 		w.fy = 0.0
 		w.omega *= 0.995
 		w.spin += w.omega * dt
+		# the suspension still pushes on the frame while the wheel hangs
+		apply_force(sus_axis * minf(f_body, 4000.0), w.axle - global_position)
 		return
 
-	var f_axis := _wheel_force(w, is_rear, w.s, w.s_vel)
-	# past full travel the tyre squashes; beyond ~4 cm the wheel is really
-	# hitting a step/wall, which the frame collider has to deal with
-	var tyre := clampf(overlap - w.travel, 0.0, 0.04)
-	f_axis += tyre * TYRE_RATE
-	var N := clampf(f_axis / a_dot_n, 0.0, 14000.0)
+	var N := clampf(f_tyre / a_dot_n, 0.0, 14000.0)
+	var N_body := clampf(f_body / a_dot_n, 0.0, 14000.0)
 	w.load = N
 	w.normal = n
 	var nipn := n_ip.normalized() if n_ip.length() > 0.01 else n
@@ -367,7 +419,7 @@ func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vec
 		fx *= lim / tot
 		fy *= lim / tot
 		w.skid = true
-	apply_force(n * N + side * fy, w.point - global_position)
+	apply_force(n * N_body + side * fy, w.point - global_position)
 	# brake / drive forces act in line with the bike's centre plane: a real
 	# tyre's steering geometry cancels the yaw a leaned contact patch would add
 	var lat_off := (w.point - com_g).dot(side)
@@ -489,6 +541,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			w.s = 0.0
 			w.s_vel = 0.0
 			w.omega = 0.0
+			w.had_ground = false
 		steer_angle = 0.0
 		steer_hold = 0.0
 		lean_target = 0.0

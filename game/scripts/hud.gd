@@ -39,7 +39,7 @@ func _ready() -> void:
 		vb.add_child(row)
 		bars[k] = pb
 	help = Label.new()
-	help.text = "W pedal   S brake   A/D steer   Space hold+release hop\nR reset   C camera   T slow-mo   right-drag look   wheel zoom"
+	help.text = "W pedal   S brake   A/D steer   Space hold+release hop\nR reset   2 trail   1 baseplate   C camera   T slow-mo   right-drag look   wheel zoom"
 	help.add_theme_font_size_override("font_size", 13)
 	help.modulate = Color(1, 1, 1, 0.8)
 	help.anchor_top = 1.0

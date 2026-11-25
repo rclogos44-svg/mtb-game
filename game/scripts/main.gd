@@ -30,6 +30,13 @@ func _ready() -> void:
 	add_child(hud)
 
 
+func _unhandled_input(e: InputEvent) -> void:
+	if e.is_action_pressed("goto_trail"):
+		bike.reset_bike(Trail.start_xform())
+	elif e.is_action_pressed("goto_base"):
+		bike.reset_bike(Transform3D(Basis(), Vector3(0, 0.05, 0)))
+
+
 static func make_bike(xform: Transform3D) -> Bike:
 	var b := RigidBody3D.new()
 	b.set_script(BikeScript)
@@ -64,6 +71,7 @@ func _bind_inputs() -> void:
 		"pedal": [KEY_W, KEY_UP], "brake": [KEY_S, KEY_DOWN],
 		"steer_left": [KEY_A, KEY_LEFT], "steer_right": [KEY_D, KEY_RIGHT],
 		"hop": [KEY_SPACE], "reset": [KEY_R], "camera": [KEY_C], "slowmo": [KEY_T],
+		"goto_trail": [KEY_2, KEY_G], "goto_base": [KEY_1],
 	}
 	for action in keys:
 		if not InputMap.has_action(action):
@@ -142,17 +150,32 @@ func _dirt() -> StandardMaterial3D:
 
 
 func _features() -> void:
-	# a line of rollers straight ahead of the spawn, off to the right
-	for i in range(5):
-		var r := CSGCylinder3D.new()
-		r.radius = 5.0
-		r.height = 3.5
-		r.sides = 96
-		r.rotation_degrees = Vector3(0, 0, 90)
-		r.position = Vector3(5.0, -5.0 + 0.35, -18.0 - i * 4.6)
-		r.use_collision = true
-		r.material = _dirt()
-		add_child(r)
+	# a line of rollers straight ahead of the spawn, off to the right: smooth
+	# pump-track humps (a cosine profile, no edges where they meet the ground)
+	var rollers := CSGPolygon3D.new()
+	var pts := PackedVector2Array()
+	var n_rollers := 5
+	var length := 4.6
+	var height := 0.40
+	var steps := 40 * n_rollers
+	for k in steps + 1:
+		var u := float(k) / steps * n_rollers * length
+		pts.append(Vector2(u, height * 0.5 * (1.0 - cos(TAU * u / length))))
+	pts.append(Vector2(n_rollers * length, -0.05))
+	pts.append(Vector2(0.0, -0.05))
+	rollers.polygon = pts
+	rollers.depth = 3.5
+	rollers.smooth_faces = true
+	rollers.use_collision = true
+	rollers.material = _dirt()
+	rollers.rotation_degrees = Vector3(0, 90, 0)          # profile runs toward -Z
+	rollers.position = Vector3(6.75, 0.0, -18.0 + length * 0.5)  # crests at z = -18, -22.6, ...
+	add_child(rollers)
+	# the trail: climb, rock garden descent, tabletop jump (see trail.gd)
+	var trail := Node3D.new()
+	trail.set_script(load("res://scripts/trail.gd"))
+	trail.name = "Trail"
+	add_child(trail)
 	# kicker up onto a platform with a 0.7 m drop off the end
 	var deck := CSGBox3D.new()
 	deck.size = Vector3(3.5, 0.7, 6.0)

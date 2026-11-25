@@ -2,7 +2,8 @@
 
 First playable piece of the mountain bike sandbox: a 29" trail/enduro bike with
 real suspension kinematics, a rider in a full-face helmet who pedals with the
-cranks, and a flat baseplate (plus a few rollers and a small drop) to test on.
+cranks, a flat baseplate (plus rollers and a small drop), and a short trail:
+a climb, a rock-garden descent and a tabletop jump with a long landing.
 
 ## Play it
 
@@ -16,6 +17,7 @@ cranks, and a flat baseplate (plus a few rollers and a small drop) to test on.
 | A D / ← → | Left stick | Steer |
 | Space (hold, release) | A | Load the suspension, then pop a bunny hop |
 | R | Y | Reset |
+| 2 / G, 1 | | Go to the top of the trail, back to the baseplate |
 | C | X | Camera: chase → side (best for watching suspension) → orbit |
 | T | Back | Slow motion |
 | Right-drag, mouse wheel | | Look around, zoom |
@@ -32,6 +34,11 @@ pressure and leverage ratio.
   so the model and the physics always match.
   * Rear: 161 mm travel from a 210×55 coil shock, leverage 3.1 → 2.8 (progressive).
   * Front: 160 mm air fork, 65° head angle, 44 mm offset.
+* **Wheels** (`game/scripts/bike.gd`): each wheel is a real unsprung mass
+  (4.5 kg rear, 3.5 kg front) between the tyre (a ~120 N/mm spring) and the
+  suspension, integrated in 8 substeps per physics tick. A fan of rays round
+  the tyre finds the ground; each hit counts only as far as that point really
+  touches the tyre, so rocks and roller edges are felt without flinging the bike.
 * **Springs and dampers** (`game/scripts/suspension.gd`): coil spring with a
   progressive bottom-out bumper; air fork with positive and negative chambers;
   two-stage (low/high speed) compression and rebound damping.
@@ -85,4 +92,14 @@ godot --headless --path game -s tests/sim_test.gd
 
 Rides the bike with an autopilot and checks: sag, standing still, pedalling up
 to speed, crank cadence, steering and leaning, braking in a corner, hard
-braking without an endo, a 1 m drop, a bunny hop, and riding into a wall.
+braking without an endo, a 1 m drop, a bunny hop, riding into a wall, knees
+staying put while pedalling crouched, the rear wheel tracking the rollers, and
+the whole trail (rock garden + jump) at three pedalling efforts.
+
+## The trail
+
+`game/scripts/trail.gd` builds a hill from a centre-line profile: climb at
+~13 %, a flat top, a 3 m descent with a rock garden in its steep middle, a
+run-in, a 1 m takeoff at 28°, a 2.6 m table, and a 30° landing that runs down
+to the ground. Coasting rolls the table; a light pedal lands on the sweet spot;
+flat-out overshoots to the bottom, like a real tabletop.

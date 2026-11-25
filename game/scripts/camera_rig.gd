@@ -10,7 +10,7 @@ var cam: Camera3D
 var target: Node3D
 var yaw := 0.0
 var pitch := -0.18
-var dist := 3.4
+var dist := 4.3
 var _pos := Vector3.ZERO
 var _look := Vector3.ZERO
 var _heading := Vector3.FORWARD

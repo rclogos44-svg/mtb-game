@@ -57,7 +57,7 @@
 <div id="overlay">
   <div class="card">
     <h1>MTB <span>Dirt Jump</span></h1>
-    <p class="sub">29&Prime; trail bike, 161&nbsp;mm coil rear / 160&nbsp;mm air fork, simulated through the real linkage. Ride the baseplate, roll the rollers, try the drop.</p>
+    <p class="sub">29&Prime; trail bike, 161&nbsp;mm coil rear / 160&nbsp;mm air fork, simulated through the real linkage. Ride the baseplate, pump the rollers, or press 2 for the trail: a rock garden descent into a tabletop jump.</p>
     <div class="bar" aria-hidden="true"><i id="fill"></i></div>
     <div id="status">Loading the engine&hellip;</div>
     <button id="play" type="button" disabled>Ride</button>
@@ -67,6 +67,7 @@
       <dt>A / D</dt><dd>Steer</dd>
       <dt>Space</dt><dd>Hold to load the suspension, release to hop</dd>
       <dt>C</dt><dd>Camera: chase, side view, orbit</dd>
+      <dt>2 &middot; 1</dt><dd>Go to the trail (rock garden + jump) &middot; back to the baseplate</dd>
       <dt>T &middot; R</dt><dd>Slow motion &middot; reset</dd>
     </dl>
     <p class="note">Needs a computer with a keyboard (a gamepad works too). Click the game if the keys stop responding.</p>
@@ -101,7 +102,7 @@
 <script>
   const GODOT_CONFIG = {
     args: [], canvasResizePolicy: 2, ensureCrossOriginIsolationHeaders: false, executable: "index",
-    experimentalVK: false, fileSizes: { "index.pck": 7032768, "index.wasm": 43699190 },
+    experimentalVK: false, fileSizes: { "index.pck": 7044128, "index.wasm": 43699190 },
     focusCanvas: true, gdextensionLibs: []
   };
   const fill = document.getElementById("fill");

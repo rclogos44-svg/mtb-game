@@ -10,6 +10,7 @@ var line_speed := 6.0
 var flip_period := 1.5
 var flip_pedal := 1.0
 var flip_brake := 0.0
+var trail_effort := 0.3
 
 
 func check(name: String, ok: bool, detail: String) -> void:
@@ -45,6 +46,12 @@ func pilot(_b, _t: float) -> Dictionary:
 			return {"pedal": 1.0 if _b.linear_velocity.length() < line_speed else 0.0, "steer": 0.25 * sin(_t * 2.3)}
 		"hopload":
 			return {"hop": true}
+		"pedalhop":
+			return {"pedal": 1.0, "hop": true}
+		"trail":
+			var off: float = _b.global_position.x - Trail.X0
+			var yaw_err: float = (-_b.global_transform.basis.z).x
+			return {"pedal": 1.0 if _t < 1.5 else trail_effort, "steer": clampf(off * 0.6 + yaw_err * 3.0, -1.0, 1.0)}
 	return {}
 
 
@@ -277,6 +284,74 @@ func _run(main) -> void:
 			var ped_local: Vector3 = (v2.model as Node3D).global_transform.affine_inverse() * pedal
 			worst_foot = maxf(worst_foot, ankle.distance_to(ped_local))
 	check("feet stay on the pedals", worst_foot < 0.20, "ankle up to %.2f m from the pedal axle" % worst_foot)
+
+	# W + Space (pedalling while crouched to load a hop): knees mustn't flip
+	phase = "pedal"
+	bike.reset_bike(Transform3D(Basis(), Vector3(-120, 0.05, 60)))
+	await wait(1.0)
+	phase = "pedalhop"
+	var vk = bike.get_node("Visual")
+	var knees := [vk.skel.find_bone("shin.L"), vk.skel.find_bone("shin.R")]
+	var prev_k := []
+	var knee_step := 0.0
+	for i in 240:
+		await physics_frame
+		var cur := []
+		for b in knees:
+			cur.append(vk.skel.get_bone_global_pose(b).origin)
+		if prev_k.size() == 2:
+			for k in 2:
+				knee_step = maxf(knee_step, (cur[k] as Vector3).distance_to(prev_k[k]))
+		prev_k = cur
+	check("pedalling while loading a hop: knees don't jump", knee_step < 0.04, "max knee move %.1f cm per tick" % (knee_step * 100.0))
+
+	# rollers: the rear wheel follows the humps instead of chattering
+	phase = "line"
+	line_speed = 4.0
+	bike.reset_bike(Transform3D(Basis(), Vector3(5, 0.05, -5)))
+	await wait(0.05)
+	var toggles := 0
+	var last_c := true
+	var hist := []
+	var chatter := 0.0
+	for i in int(14.0 * Engine.physics_ticks_per_second):
+		await physics_frame
+		var z := bike.global_position.z
+		if z > -12.5:
+			continue
+		if z < -40.0:
+			break
+		if bike.rear.contact != last_c:
+			toggles += 1
+		last_c = bike.rear.contact
+		hist.append(bike.rear.s)
+		if hist.size() >= 3:
+			chatter += absf(hist[-1] - 2.0 * hist[-2] + hist[-3])
+	check("rollers: rear wheel doesn't chatter", toggles <= 2 and chatter < 0.5, "contact lost %d times, roughness %.2f" % [toggles, chatter])
+
+	# the trail: rock garden and tabletop at a light pedal
+	phase = "trail"
+	for eff in [0.0, 0.3, 0.6]:
+		trail_effort = eff
+		bike.reset_bike(Trail.start_xform())
+		await wait(0.05)
+		bike.sim_time = 0.0
+		var worst_tilt := 0.0
+		var fell_t := false
+		var lip_v := 0.0
+		for i in int(14.0 * Engine.physics_ticks_per_second):
+			await physics_frame
+			var p := bike.global_position
+			if p.z < -24.5 and p.z > -25.5:
+				lip_v = bike.linear_velocity.length()
+			worst_tilt = maxf(worst_tilt, absf(roll_deg()))
+			if bike.global_transform.basis.y.dot(Vector3.UP) < 0.4:
+				fell_t = true
+			if p.z < -45.0:
+				break
+		var done := bike.global_position.z < -40.0
+		check("trail (pedal %.0f%%): rock garden + jump, stays up" % (eff * 100), done and not fell_t and worst_tilt < 40.0,
+			"lip %.1f m/s, max lean %.0f deg, reached z %.0f" % [lip_v, worst_tilt, bike.global_position.z])
 
 	print("RESULT: %s (%d failed)" % ["OK" if fails == 0 else "FAILED", fails])
 	quit(1 if fails else 0)
