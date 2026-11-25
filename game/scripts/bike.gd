@@ -15,8 +15,10 @@ const GEO_PATH := "res://assets/geometry.json"
 const TYRE_TUBE := 0.0275          # tyre cross-section radius (m)
 const TYRE_RATE := 110000.0
 const TYRE_RELAX_LEN := 0.25      # m
-const MAX_LEAN := 0.35            # rad (20 deg)
-const STEER_LAT_G := 0.25         # g of cornering at full steering (wide, gentle turns)
+const MAX_LEAN := 0.47            # rad (27 deg), only reached in a held, sharp turn
+const STEER_LAT_G_TAP := 0.10     # g of cornering when the key has just been pressed
+const STEER_LAT_G_HELD := 0.50    # g once it has been held for STEER_BUILD_TIME
+const STEER_BUILD_TIME := 1.5     # s
 const LEAN_RATE := 1.3            # rad/s the rider can roll the bike
 const MAX_LEAN_TORQUE := 1300.0   # N m
 const MAX_ROLL_RATE_GROUND := 1.8 # rad/s        # tyre vertical stiffness once the suspension bottoms (N/m)
@@ -79,6 +81,8 @@ var in_hop := false
 var autopilot: Callable
 
 var steer_angle := 0.0
+var steer_hold := 0.0      ## 0..1, how long the current turn has been held
+var steer_hold_dir := 0.0
 var crank_angle := 0.0
 var cadence_rpm := 0.0
 var hop_charge := 0.0
@@ -205,8 +209,18 @@ func _physics_process(dt: float) -> void:
 	# full steering asks for a firm but realistic turn: about STEER_LAT_G of
 	# sideways acceleration at any speed (tan(steer) = a * wheelbase / v^2)
 	var wb: float = geo["wheelbase"]
-	var max_steer := minf(0.45, atan(STEER_LAT_G * GRAV * wb / maxf(speed * speed, 0.01)))
-	steer_angle = move_toward(steer_angle, in_steer * max_steer, 2.0 * dt)
+	# turning builds up the longer the key is held: a tap gives a gentle line,
+	# holding tightens it to a sharp turn. Reversing starts the build again.
+	var dir := signf(in_steer)
+	if dir == 0.0 or dir != steer_hold_dir:
+		steer_hold = 0.0
+	steer_hold_dir = dir
+	if dir != 0.0:
+		steer_hold = minf(steer_hold + dt / STEER_BUILD_TIME, 1.0)
+	var ramp := steer_hold * steer_hold * (3.0 - 2.0 * steer_hold)          # smoothstep
+	var lat_g := lerpf(STEER_LAT_G_TAP, STEER_LAT_G_HELD, ramp) * absf(in_steer)
+	var max_steer := minf(0.50, atan(lat_g * GRAV * wb / maxf(speed * speed, 0.01)))
+	steer_angle = move_toward(steer_angle, dir * max_steer, 2.0 * dt)
 	var axis_g := (xf.basis * steer_axis_local).normalized()
 	var steer_rot := Basis(axis_g, steer_angle)
 
@@ -476,6 +490,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			w.s_vel = 0.0
 			w.omega = 0.0
 		steer_angle = 0.0
+		steer_hold = 0.0
 		lean_target = 0.0
 		upside_down_time = 0.0
 		_reset_pending = false

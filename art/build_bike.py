@@ -115,19 +115,19 @@ frame.tube(S(st_split), S(SEAT_TOP), 0.019, 0.0185, FRAME_DK, seg=24)
 frame.sphere(S(st_split), 0.0192, FRAME_DK)
 # seat clamp + dropper post (lowered) + saddle
 frame.tube(S(SEAT_TOP) - ST_DIR * 0.004, S(SEAT_TOP) + ST_DIR * 0.016, 0.021, mat=MATTE, seg=20)
-post_top = S(SEAT_TOP) + ST_DIR * 0.055
-frame.tube(S(SEAT_TOP), S(SEAT_TOP) + ST_DIR * 0.030, 0.0158, mat=ALLOY, seg=20)      # dropper stanchion
-frame.tube(S(SEAT_TOP) + ST_DIR * 0.030, post_top, 0.0158, mat=MATTE, seg=20)
+# dropper slammed all the way down: the rider pedals standing, clear of the saddle
+post_top = S(SEAT_TOP) + ST_DIR * 0.018
+frame.tube(S(SEAT_TOP), post_top, 0.0158, mat=MATTE, seg=20)
 pt = (post_top.y, post_top.z)
-frame.hull([S(uv_add(pt, (-0.035, 0.012)), x) for x in (-0.013, 0.013)] +
-           [S(uv_add(pt, (0.03, 0.014)), x) for x in (-0.013, 0.013)] +
+frame.hull([S(uv_add(pt, (-0.035, 0.008)), x) for x in (-0.013, 0.013)] +
+           [S(uv_add(pt, (0.03, 0.009)), x) for x in (-0.013, 0.013)] +
            [S(pt, x) for x in (-0.017, 0.017)], MATTE)
 saddle = []
-for (du, dv, w) in ((-0.135, 0.040, 0.070), (-0.105, 0.036, 0.074), (-0.05, 0.031, 0.060),
-                    (0.02, 0.028, 0.032), (0.105, 0.032, 0.022)):
+for (du, dv, w) in ((-0.135, 0.026, 0.068), (-0.105, 0.023, 0.072), (-0.05, 0.019, 0.058),
+                    (0.02, 0.016, 0.030), (0.105, 0.020, 0.021)):
     for k in range(10):
         a = 2 * math.pi * k / 10
-        saddle.append(S((pt[0] + du, pt[1] + dv + 0.014 * math.sin(a)), w * math.cos(a)))
+        saddle.append(S((pt[0] + du, pt[1] + dv + 0.010 * math.sin(a)), w * math.cos(a)))
 frame.hull(saddle, MATTE)
 # BB shell and the cluster that carries the main pivot
 frame.tube(S(BB, -0.037), S(BB, 0.037), 0.024, mat=FRAME_DK, seg=28)

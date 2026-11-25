@@ -35,6 +35,8 @@ func pilot(_b, _t: float) -> Dictionary:
 			return {"pedal": 1.0, "steer": 1.0 if k % 2 == 0 else -1.0, "hop": int(_t * 1.3) % 3 == 0}
 		"steerstill":
 			return {"steer": 1.0}
+		"holdturn":
+			return {"pedal": 0.6 if _b.linear_velocity.length() < 7.0 else 0.0, "steer": 1.0}
 		"flip":
 			# hold W+A, then switch to W+D (or S+A -> S+D), back and forth
 			var dir := 1.0 if int(_t / flip_period) % 2 == 0 else -1.0
@@ -216,7 +218,22 @@ func _run(main) -> void:
 			worst = maxf(worst, absf(roll_deg()))
 			if bike.global_transform.basis.y.dot(Vector3.UP) < 0.4:
 				fell = true
-		check("steer switch %s: stays up, gentle lean" % combo[3], not fell and worst < 24.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
+		check("steer switch %s: stays up" % combo[3], not fell and worst < 34.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
+
+	# turning tightens the longer the key is held; quick taps stay gentle
+	phase = "holdturn"
+	bike.reset_bike(Transform3D(Basis(), Vector3(-150, 0.05, 150)))
+	await wait(0.05)
+	phase = "pedal"
+	await wait(4.0)
+	phase = "holdturn"
+	await wait(0.3)
+	var yaw_early := absf(bike.angular_velocity.y)
+	await wait(2.0)
+	var yaw_late := absf(bike.angular_velocity.y)
+	var v_turn := bike.linear_velocity.length()
+	check("holding the turn tightens it", yaw_late > yaw_early * 2.0 and yaw_late > 0.6,
+		"yaw %.2f rad/s after 0.3 s, %.2f after 2.3 s (radius %.1f m at %.0f km/h)" % [yaw_early, yaw_late, v_turn / maxf(yaw_late, 0.01), v_turn * 3.6])
 
 	# hands follow the bars when steering
 	phase = "settle"

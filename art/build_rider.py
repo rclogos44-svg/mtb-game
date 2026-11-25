@@ -100,7 +100,7 @@ PARENT = {name: parent for name, _, _, parent, _ in BONES}
 
 # ================================================================== body (skin modifier)
 NODES = [  # name, position, radius (lateral, depth)
-    ("pelvis", J["pelvis"], (0.190, 0.150)),
+    ("pelvis", J["pelvis"], (0.180, 0.138)),
     ("waist", (0, 0.0, 1.08), (0.175, 0.135)),
     ("belly", (0, 0.010, 1.20), (0.185, 0.145)),
     ("chest", (0, 0.005, 1.33), (0.200, 0.150)),
@@ -387,8 +387,8 @@ def pose_for(alpha):
     P = {}
     P["root"] = REST["root"].copy()
     bob = -0.010 * math.cos(2 * alpha)
-    pelvis = Vector((0.0, -0.205, 1.060 + bob))      # standing, hips over the cranks
-    lean = math.radians(18)
+    pelvis = Vector((0.0, -0.140, 1.085 + bob))      # standing tall, hips over the saddle nose, well clear of it
+    lean = math.radians(24)
     P["hips"] = bone_matrix(pelvis, (0, math.sin(lean), math.cos(lean)), FWD)
     sp_l = math.radians(26)
     P["spine"] = bone_matrix(child_head(P["hips"], "hips", "spine"), (0, math.sin(sp_l), math.cos(sp_l)), FWD)
