@@ -51,7 +51,7 @@ class CoilSpring:
 	var stroke: float
 	var rate := 80000.0         ## N/m
 	var preload_force := 0.0    ## N
-	var bumper := 0.012         ## m of stroke where the bumper works
+	var bumper := 0.020         ## m of stroke where the bumper works
 
 	func _init(p_stroke: float) -> void:
 		stroke = p_stroke

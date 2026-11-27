@@ -147,10 +147,20 @@ func _run(main) -> void:
 	phase = "settle"
 	var max_y := 0.0
 	var y0 := bike.global_position.y
+	var land_r := 0.0
+	var land_f := 0.0
+	var was_air := false
 	for i in int(1.5 * Engine.physics_ticks_per_second):
 		await physics_frame
 		max_y = maxf(max_y, bike.global_position.y - y0)
+		if not (bike.rear.contact or bike.front.contact):
+			was_air = true
+		elif was_air:
+			land_r = maxf(land_r, bike.rear.s / bike.rear.travel)
+			land_f = maxf(land_f, bike.front.s / bike.front.travel)
 	check("bunny hop leaves the ground", max_y > 0.10, "%.2f m" % max_y)
+	check("bunny hop landing doesn't bottom out", was_air and land_r < 0.75 and land_f < 0.75,
+		"landing used rear %.0f%%, fork %.0f%% (sag included)" % [land_r * 100, land_f * 100])
 	await wait(1.5)
 	check("upright after hop", absf(roll_deg()) < 5.0, "roll %.1f" % roll_deg())
 

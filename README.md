@@ -47,7 +47,8 @@ pressure and leverage ratio.
   progressive bottom-out bumper; air fork with positive and negative chambers;
   two-stage (low/high speed) compression and rebound damping.
 * **Setup like a real bike**: spring rate and fork pressure are chosen from the
-  rider's weight to hit 28 % rear / 20 % front sag; damping is set as a
+  rider's weight to hit 24 % rear / 17 % front sag (set firm, "pumped up"),
+  with two volume tokens in the fork; damping is set as a
   fraction of critical. All exposed on the `Bike` node.
 * **Wheels** (`game/scripts/bike.gd`): each wheel ray-casts the ground, models
   the tyre as a torus (so leaning is right), compresses the suspension through

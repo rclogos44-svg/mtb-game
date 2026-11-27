@@ -18,6 +18,7 @@ const TYRE_DAMP := 400.0
 const REAR_UNSPRUNG := 4.5        # kg at the axle: wheel, tyre, cassette, part of the swingarm
 const FRONT_UNSPRUNG := 3.5       # kg: wheel, tyre, fork lowers
 const WHEEL_SUBSTEPS := 8
+const RIDER_LEG_DAMPING := 3200.0  # N per m/s: the rider's legs and arms on a landing
 const TYRE_RELAX_LEN := 0.25      # m
 const MAX_LEAN := 0.47            # rad (27 deg), only reached in a held, sharp turn
 const STEER_LAT_G_TAP := 0.10     # g of cornering when the key has just been pressed
@@ -34,9 +35,9 @@ const WHEEL_RAY_ANGLES := [-0.9, -0.6, -0.35, -0.15, 0.0, 0.15, 0.35, 0.6, 0.9]
 @export var rider_mass := 75.0
 @export var bike_mass := 15.0
 @export_group("Suspension")
-@export_range(0.1, 0.4) var rear_sag := 0.28
-@export_range(0.1, 0.35) var fork_sag := 0.20
-@export_range(0.05, 1.0) var compression_damping := 0.30   ## fraction of critical (low speed)
+@export_range(0.1, 0.4) var rear_sag := 0.24
+@export_range(0.1, 0.35) var fork_sag := 0.17
+@export_range(0.05, 1.0) var compression_damping := 0.40   ## fraction of critical (low speed)
 @export_range(0.1, 1.5) var rebound_damping := 0.60
 @export_group("Tyres and drive")
 @export var tyre_grip := 1.05
@@ -93,6 +94,8 @@ var hop_charge := 0.0
 var lean_target := 0.0     ## rad, + = leaning left
 var weight_back := 0.0      ## 0..1, rider shifting back under braking
 var sim_time := 0.0
+var air_time := 0.0          ## s since both wheels left the ground
+var absorb_time := 0.0       ## s left of the rider soaking up a landing
 var upside_down_time := 0.0
 var spawn_xform: Transform3D
 var _reset_pending := false
@@ -165,20 +168,20 @@ func _setup_suspension() -> void:
 	var c_crit := 2.0 * sqrt(kw * rear_static_load / GRAV)       # at the wheel
 	shock_damper.lsc = compression_damping * c_crit * lr * lr  # at the shaft
 	shock_damper.lsr = rebound_damping * c_crit * lr * lr
-	shock_damper.hsc = shock_damper.lsc * 0.35
+	shock_damper.hsc = shock_damper.lsc * 0.65
 	shock_damper.hsr = shock_damper.lsr * 0.60
 	shock_damper.knee = 0.10
 
 	# front: 160 mm air fork, ~32 mm air piston, force along the steering axis
 	var cos_a := steer_axis_local.dot(Vector3.UP)
-	fork = Suspension.AirSpring.new(front.travel, 0.40, 0.21, 0.0008)
+	fork = Suspension.AirSpring.new(front.travel, 0.30, 0.21, 0.0008)   # two volume tokens: ramps up hard near the end
 	var f_sag := fork_sag * front.travel
 	fork.p0a = front_static_load * cos_a / fork.shape(f_sag)
 	var kf := fork.rate(f_sag)
 	var cf := 2.0 * sqrt(kf * front_static_load / GRAV)
 	fork_damper.lsc = compression_damping * cf
 	fork_damper.lsr = rebound_damping * cf
-	fork_damper.hsc = fork_damper.lsc * 0.35
+	fork_damper.hsc = fork_damper.lsc * 0.65
 	fork_damper.hsr = fork_damper.lsr * 0.60
 	fork_damper.knee = 0.25
 
@@ -240,6 +243,21 @@ func _physics_process(dt: float) -> void:
 	# (centre of mass kept fixed: moving it at runtime destabilises the solver)
 	var grounded := rear.contact or front.contact
 	var both := rear.contact and front.contact
+	# Landings: a rider soaks up much of a landing with their legs (bending
+	# knees and elbows), so the suspension only sees part of it. For a moment
+	# after touchdown, the legs take a share of the downward speed.
+	if not grounded:
+		air_time += dt
+		absorb_time = 0.0
+	else:
+		if air_time > 0.12:
+			absorb_time = 0.35
+		air_time = 0.0
+	if absorb_time > 0.0:
+		absorb_time -= dt
+		var v_down := -linear_velocity.y
+		if v_down > 0.0:
+			apply_central_force(Vector3.UP * minf(v_down * RIDER_LEG_DAMPING, 1.4 * mass * GRAV))
 	if grounded:
 		# on one wheel the lone tyre can't hold a full lean, so ease off
 		# on one wheel the lone tyre can't hold a full lean, so ease off - unless
@@ -545,6 +563,8 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		steer_angle = 0.0
 		steer_hold = 0.0
 		lean_target = 0.0
+		air_time = 0.0
+		absorb_time = 0.0
 		upside_down_time = 0.0
 		_reset_pending = false
 
