@@ -129,7 +129,7 @@ func _rear() -> void:
 func _front() -> void:
 	if parts.has("Steer"):
 		var t: Transform3D = rest["Steer"]
-		t.basis = t.basis * Basis(Vector3.UP, bike.steer_angle)
+		t.basis = t.basis * Basis(Vector3.UP, bike.bar_angle)
 		parts["Steer"].transform = t
 	if parts.has("ForkLower"):
 		var t2: Transform3D = rest["ForkLower"]
@@ -254,7 +254,7 @@ func _rider_body(dt: float) -> void:
 		# much as needed for both hands to reach their grips (as a rider does
 		# when crouching low or reaching for a turned bar).
 		var sp0 := skel.get_bone_global_pose(spine_bone)
-		var twist := Basis(Vector3.UP, bike.steer_angle * 0.9)
+		var twist := Basis(Vector3.UP, bike.bar_angle * 0.6)
 		var fold := clampf(hip_off.y * 0.8, -0.2, 0.05)
 		for k in 10:
 			var sp := sp0

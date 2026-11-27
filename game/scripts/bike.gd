@@ -20,10 +20,10 @@ const FRONT_UNSPRUNG := 3.5       # kg: wheel, tyre, fork lowers
 const WHEEL_SUBSTEPS := 8
 const RIDER_LEG_DAMPING := 3200.0  # N per m/s: the rider's legs and arms on a landing
 const TYRE_RELAX_LEN := 0.25      # m
-const MAX_LEAN := 0.47            # rad (27 deg), only reached in a held, sharp turn
+const MAX_LEAN := 0.56            # rad (32 deg), only reached in a held, sharp turn
 const STEER_LAT_G_TAP := 0.10     # g of cornering when the key has just been pressed
-const STEER_LAT_G_HELD := 0.50    # g once it has been held for STEER_BUILD_TIME
-const STEER_BUILD_TIME := 1.5     # s
+const STEER_LAT_G_HELD := 0.64    # g once it has been held for STEER_BUILD_TIME
+const STEER_BUILD_TIME := 1.0     # s
 const LEAN_RATE := 1.3            # rad/s the rider can roll the bike
 const MAX_LEAN_TORQUE := 1300.0   # N m
 const MAX_ROLL_RATE_GROUND := 1.8 # rad/s
@@ -86,6 +86,9 @@ var in_hop := false
 var autopilot: Callable
 
 var steer_angle := 0.0
+## What the rider's hands do with the bars (drawn): the path angle plus what
+## the tyre's slip and the rider's steering input add on top of it.
+var bar_angle := 0.0
 var steer_hold := 0.0      ## 0..1, how long the current turn has been held
 var steer_hold_dir := 0.0
 var crank_angle := 0.0
@@ -228,8 +231,12 @@ func _physics_process(dt: float) -> void:
 		steer_hold = minf(steer_hold + dt / STEER_BUILD_TIME, 1.0)
 	var ramp := steer_hold * steer_hold * (3.0 - 2.0 * steer_hold)          # smoothstep
 	var lat_g := lerpf(STEER_LAT_G_TAP, STEER_LAT_G_HELD, ramp) * absf(in_steer)
-	var max_steer := minf(0.50, atan(lat_g * GRAV * wb / maxf(speed * speed, 0.01)))
-	steer_angle = move_toward(steer_angle, dir * max_steer, 2.0 * dt)
+	var max_steer := minf(0.70, atan(lat_g * GRAV * wb / maxf(speed * speed, 0.01)))
+	steer_angle = move_toward(steer_angle, dir * max_steer, 2.5 * dt)
+	# bars: a rider turns the bars well past the path angle (tyre slip, and at
+	# low speed the bars swing a lot); never more than ~40 deg
+	var bar_want := steer_angle * 1.8 + dir * absf(in_steer) * 0.10 * (0.4 + 0.6 * ramp)
+	bar_angle = move_toward(bar_angle, clampf(bar_want, -0.72, 0.72), 3.0 * dt)
 	var axis_g := (xf.basis * steer_axis_local).normalized()
 	var steer_rot := Basis(axis_g, steer_angle)
 
@@ -561,6 +568,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 			w.omega = 0.0
 			w.had_ground = false
 		steer_angle = 0.0
+		bar_angle = 0.0
 		steer_hold = 0.0
 		lean_target = 0.0
 		air_time = 0.0

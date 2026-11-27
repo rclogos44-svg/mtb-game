@@ -235,7 +235,7 @@ func _run(main) -> void:
 			worst = maxf(worst, absf(roll_deg()))
 			if bike.global_transform.basis.y.dot(Vector3.UP) < 0.4:
 				fell = true
-		check("steer switch %s: stays up" % combo[3], not fell and worst < 34.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
+		check("steer switch %s: stays up" % combo[3], not fell and worst < 39.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
 
 	# turning tightens the longer the key is held; quick taps stay gentle
 	phase = "holdturn"
@@ -275,8 +275,8 @@ func _run(main) -> void:
 	await process_frame
 	await process_frame
 	var e_turned: float = grip_err.call()
-	check("hands stay on the grips when steering", vis.hand_miss < 0.01 and absf(e_turned - e_straight) < 0.02 and absf(bike.steer_angle) > 0.4,
-		"steer %.0f deg, hands %.1f cm off target; wrist-to-grip %.3f m straight vs %.3f m turned" % [rad_to_deg(bike.steer_angle), vis.hand_miss * 100, e_straight, e_turned])
+	check("hands stay on the grips when steering", vis.hand_miss < 0.01 and absf(e_turned - e_straight) < 0.02 and absf(bike.bar_angle) > 0.4,
+		"bars %.0f deg, hands %.1f cm off target; wrist-to-grip %.3f m straight vs %.3f m turned" % [rad_to_deg(bike.bar_angle), vis.hand_miss * 100, e_straight, e_turned])
 
 	# feet stay on the pedals (ankle a shoe's length from the pedal axle)
 	phase = "pedal"
