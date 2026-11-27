@@ -2,6 +2,8 @@ extends CanvasLayer
 ## Live readout of the suspension so you can see what it is doing.
 
 @export var bike_path: NodePath
+## Phones: just speed and the two travel bars, in bigger type, no key hints.
+@export var compact := false
 var bike: Bike
 var label: Label
 var bars := {}
@@ -23,16 +25,19 @@ func _ready() -> void:
 	var vb := VBoxContainer.new()
 	panel.add_child(vb)
 	label = Label.new()
-	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_font_size_override("font_size", 28 if compact else 15)
 	vb.add_child(label)
 	for k in ["Fork", "Shock"]:
 		var row := HBoxContainer.new()
 		var l := Label.new()
 		l.text = k
 		l.custom_minimum_size = Vector2(52, 0)
+		if compact:
+			l.add_theme_font_size_override("font_size", 24)
+			l.custom_minimum_size = Vector2(90, 0)
 		row.add_child(l)
 		var pb := ProgressBar.new()
-		pb.custom_minimum_size = Vector2(180, 14)
+		pb.custom_minimum_size = Vector2(240, 22) if compact else Vector2(180, 14)
 		pb.show_percentage = false
 		pb.max_value = 100
 		row.add_child(pb)
@@ -46,6 +51,9 @@ func _ready() -> void:
 	help.anchor_bottom = 1.0
 	help.position = Vector2(16, -60)
 	add_child(help)
+	help.visible = not compact
+	if compact:
+		panel.position = Vector2(40, 30)
 	bike = get_node_or_null(bike_path)
 
 
@@ -56,6 +64,11 @@ func _process(_dt: float) -> void:
 	help.position.y = get_viewport().get_visible_rect().size.y - 56
 	var rt := bike.rear.travel * 1000.0
 	var ft := bike.front.travel * 1000.0
+	if compact:
+		label.text = "%2d km/h" % int(round(bike.speed_kmh())) + ("   SLOW-MO" if Engine.time_scale < 0.9 else "")
+		bars["Fork"].value = bike.front.s / bike.front.travel * 100.0
+		bars["Shock"].value = bike.rear.s / bike.rear.travel * 100.0
+		return
 	label.text = "%4.1f km/h   cadence %3d rpm\n" % [bike.speed_kmh(), int(bike.cadence_rpm)] \
 		+ "Fork   %5.1f / %d mm   %d psi\n" % [bike.fork_travel_mm(), int(ft), int(bike.fork.psi())] \
 		+ "Shock  %4.1f / %d mm stroke   %d lb/in coil\n" % [bike.shock_stroke_mm(), int(bike.geo["shock_stroke"] * 1000), bike.shock.lbs_per_in()] \

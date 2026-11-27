@@ -16,13 +16,19 @@
   }
   [hidden] { display: none !important; }
   html, body { height: 100%; }
-  body { background: var(--bg); color: var(--fg); font-family: var(--body); overflow: hidden; }
-  #canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; background: var(--bg); }
+  body {
+    background: var(--bg); color: var(--fg); font-family: var(--body); overflow: hidden;
+    overscroll-behavior: none; -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  }
+  /* the game owns every touch: no scrolling, pinch-zoom or double-tap zoom on the canvas */
+  #canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; background: var(--bg); touch-action: none; }
   #overlay {
     position: fixed; inset: 0; display: grid; place-items: center;
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
     padding-block: 24px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
     background: radial-gradient(120% 90% at 50% 110%, #3b2a1b 0%, var(--bg) 60%);
   }
   .card { width: min(520px, 100%); display: grid; gap: 18px; }
@@ -48,20 +54,52 @@
   .keys dt { font-family: var(--display); font-weight: 600; letter-spacing: 0.04em; color: var(--fg); }
   .keys dd { margin: 0; color: var(--muted); }
   .note { font-size: 12px; color: var(--muted); margin: 0; }
+  /* phones and tablets get the touch instructions instead of the keyboard ones */
+  .touch-only { display: none; }
+  @media (pointer: coarse) {
+    .keys-only { display: none; }
+    dl.touch-only { display: grid; }
+    p.touch-only { display: block; }
+    span.touch-only { display: inline !important; }
+  }
+  /* short landscape phones: tighten the card so Ride stays on screen */
+  @media (max-height: 480px) {
+    .card { gap: 10px; }
+    h1 { font-size: 40px; }
+    .sub { font-size: 13px; }
+  }
+  #rotate {
+    position: fixed; inset: 0; display: none; place-items: center; text-align: center;
+    padding: 24px 16px; background: rgba(20, 19, 15, 0.92); z-index: 2;
+    font-family: var(--display); font-size: 26px; letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  #rotate small { display: block; font-family: var(--body); font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--muted); margin-top: 8px; }
+  @media (pointer: coarse) and (orientation: portrait) {
+    body.playing #rotate { display: grid; }
+  }
   @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:ital,wght@0,600;1,700&display=swap">
 
+<div id="rotate"><div>Turn your phone sideways<small>The bike needs a landscape screen.</small></div></div>
 <canvas id="canvas" tabindex="0">Your browser doesn't support WebGL.</canvas>
 <div id="overlay">
   <div class="card">
     <h1>MTB <span>Dirt Jump</span></h1>
-    <p class="sub">29&Prime; trail bike, 161&nbsp;mm coil rear / 160&nbsp;mm air fork, simulated through the real linkage. Ride the baseplate, pump the rollers, or press 2 for the trail: a rock garden descent into a tabletop jump.</p>
+    <p class="sub">29&Prime; trail bike, 161&nbsp;mm coil rear / 160&nbsp;mm air fork, simulated through the real linkage. Ride the baseplate, pump the rollers, or head to the trail (<span class="keys-only">press 2</span><span class="touch-only">tap Trail</span>): a rock garden descent into a tabletop jump.</p>
     <div class="bar" aria-hidden="true"><i id="fill"></i></div>
     <div id="status">Loading the engine&hellip;</div>
     <button id="play" type="button" disabled>Ride</button>
-    <dl class="keys">
+    <dl class="keys touch-only">
+      <dt>&#9664; &#9654;</dt><dd>Steer (left thumb, slide between them)</dd>
+      <dt>Pedal</dt><dd>Hold to pedal (right thumb)</dd>
+      <dt>Brake</dt><dd>Hold to brake</dd>
+      <dt>Hop</dt><dd>Hold to load the suspension, let go to pop</dd>
+      <dt>Trail</dt><dd>Top of the trail: rock garden and tabletop jump</dd>
+      <dt>Cam &middot; Reset</dt><dd>Change camera &middot; start over</dd>
+    </dl>
+    <dl class="keys keys-only">
       <dt>W</dt><dd>Pedal</dd>
       <dt>S</dt><dd>Brake</dd>
       <dt>A / D</dt><dd>Steer</dd>
@@ -70,7 +108,8 @@
       <dt>2 &middot; 1</dt><dd>Go to the trail (rock garden + jump) &middot; back to the baseplate</dd>
       <dt>T &middot; R</dt><dd>Slow motion &middot; reset</dd>
     </dl>
-    <p class="note">Needs a computer with a keyboard (a gamepad works too). Click the game if the keys stop responding.</p>
+    <p class="note keys-only">Keyboard or gamepad. Click the game if the keys stop responding.</p>
+    <p class="note touch-only">Turn your phone sideways. Use two thumbs: you can steer and pedal at the same time.</p>
   </div>
 </div>
 
@@ -102,7 +141,7 @@
 <script>
   const GODOT_CONFIG = {
     args: [], canvasResizePolicy: 2, ensureCrossOriginIsolationHeaders: false, executable: "index",
-    experimentalVK: false, fileSizes: { "index.pck": 7044128, "index.wasm": 43699190 },
+    experimentalVK: false, fileSizes: { "index.pck": 7049008, "index.wasm": 43699190 },
     focusCanvas: true, gdextensionLibs: []
   };
   const fill = document.getElementById("fill");
@@ -119,7 +158,7 @@
   if (typeof Engine === "undefined") {
     fail("The game files didn't load. Reload the page to try again.");
   } else if (!Engine.isWebGLAvailable(2)) {
-    fail("This browser has WebGL 2 turned off, which the game needs. Try Chrome, Edge or Firefox on a computer.");
+    fail("This browser has WebGL 2 turned off, which the game needs. Try an up-to-date Chrome, Safari, Edge or Firefox.");
   } else if (typeof DecompressionStream === "undefined") {
     fail("This browser is too old to unpack the game. Update it, or try Chrome, Edge or Firefox.");
   } else {
@@ -140,6 +179,19 @@
 
     play.addEventListener("click", function () {
       play.disabled = true;
+      // phones: go fullscreen and landscape where the browser allows it (it's fine if not)
+      if (window.matchMedia("(pointer: coarse)").matches) {
+        try {
+          const el = document.documentElement;
+          const fs = el.requestFullscreen || el.webkitRequestFullscreen;
+          const p = fs ? fs.call(el, { navigationUI: "hide" }) : null;
+          if (p && p.then) {
+            p.then(function () {
+              if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(function () {});
+            }).catch(function () {});
+          }
+        } catch (e) { /* not allowed here: carry on */ }
+      }
       statusEl.textContent = "Loading the bike\u2026";
       engine.startGame({
         onProgress: function (cur, total) {
@@ -148,9 +200,13 @@
       }).then(function () {
         console.log("startGame resolved");
         overlay.hidden = true;
+        document.body.classList.add("playing");
         canvas.focus();
       }).catch(function (e) { fail("Couldn't start the game: " + e.message); });
     });
     canvas.addEventListener("pointerdown", function () { canvas.focus(); });
+    // stop the page itself from scrolling or zooming under the player's thumbs
+    document.addEventListener("touchmove", function (e) { if (e.target === canvas) e.preventDefault(); }, { passive: false });
+    document.addEventListener("gesturestart", function (e) { e.preventDefault(); });
   }
 </script>

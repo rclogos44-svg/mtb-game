@@ -24,10 +24,25 @@ func _ready() -> void:
 	cam.name = "CameraRig"
 	cam.set("target_path", bike.get_path())
 	add_child(cam)
+	var touch := is_touch()
 	var hud := CanvasLayer.new()
 	hud.set_script(HudScript)
 	hud.set("bike_path", bike.get_path())
+	hud.set("compact", touch)
 	add_child(hud)
+	if touch:
+		var tc := CanvasLayer.new()
+		tc.set_script(load("res://scripts/touch_controls.gd"))
+		tc.name = "TouchControls"
+		add_child(tc)
+		# phones: lighter shadows so it keeps a steady frame rate
+		RenderingServer.directional_shadow_atlas_set_size(2048, true)
+
+
+## Phones and tablets (or --touch on the command line, for testing).
+static func is_touch() -> bool:
+	return DisplayServer.is_touchscreen_available() or OS.has_feature("web_android") \
+		or OS.has_feature("web_ios") or OS.get_cmdline_user_args().has("--touch")
 
 
 func _unhandled_input(e: InputEvent) -> void:
@@ -118,7 +133,7 @@ func _environment() -> void:
 	sun.rotation_degrees = Vector3(-48, -35, 0)
 	sun.light_energy = 1.25
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 60.0
+	sun.directional_shadow_max_distance = 35.0 if is_touch() else 60.0
 	add_child(sun)
 
 

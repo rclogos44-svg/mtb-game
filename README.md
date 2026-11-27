@@ -22,6 +22,10 @@ a climb, a rock-garden descent and a tabletop jump with a long landing.
 | T | Back | Slow motion |
 | Right-drag, mouse wheel | | Look around, zoom |
 
+On a phone or tablet, on-screen buttons appear instead (turn the phone
+sideways): steer with the left thumb, PEDAL / BRAKE / HOP with the right, and
+CAM / TRAIL / BASE / RESET along the top. Several fingers work at once.
+
 The panel in the corner shows live fork and shock travel, spring rate, air
 pressure and leverage ratio.
 
