@@ -1,0 +1,264 @@
+<title>Dirt Jump Blueprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* VOICE work: a builder's drawing for a dirt jump line, read before digging
+   IDEA a blueprint sheet: white linework on blueprint blue, dimension lines, title block
+   PICTURE the side elevation at true scale with each jump's flight path drawn in; plan view below
+   COLOUR blueprint blue ground, white ink, pale cyan for flight paths, coral for gaps
+   TYPE Barlow Condensed for titles and figures + Barlow for text
+   LAYOUT title block across the top with key figures at right; elevation full width; plan + spec table below; phone stacks and scrolls the drawings sideways */
+:root{color-scheme:dark;--bg:#0f3a7d;--bg2:#0c2f66;--ink:#eef4ff;--line:#c5dbff;--mute:#a9c3ec;--fly:#8fe3ff;--gap:#ff8a6a;--grid:rgba(197,219,255,.10)}
+*{box-sizing:border-box;min-width:0}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Barlow,system-ui,sans-serif;overflow-x:clip;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px}
+.band{padding-block:clamp(22px,3.5vw,48px);padding-left:max(5vw,16px,env(safe-area-inset-left,0px));padding-right:max(5vw,16px,env(safe-area-inset-right,0px));max-width:1340px;margin:0 auto}
+h1,h2{font-family:"Barlow Condensed",Arial Narrow,sans-serif;font-weight:700;line-height:1.05;letter-spacing:-.01em;margin:0}
+h1{font-size:clamp(34px,5vw,52px)}
+h2{font-size:26px;margin-bottom:10px}
+.head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px 40px;align-items:end;border:1.5px solid var(--line);padding:18px 20px}
+.head p{margin:8px 0 0;color:var(--mute);max-width:62ch}
+.figs{display:grid;grid-template-columns:repeat(3,auto);gap:4px 28px}
+.figs b{display:block;font:700 34px/1 "Barlow Condensed",sans-serif;white-space:nowrap}
+.figs span{font-size:13px;color:var(--mute)}
+.sheet{border:1.5px solid var(--line);border-top:0;padding:14px 20px 18px}
+.sheet .cap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 20px;font-size:14px;color:var(--mute);margin-bottom:6px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.fig{position:relative;min-width:860px}
+.fig svg{display:block;width:100%;height:100%}
+#elev{height:250px}
+#plan{height:230px}
+svg text{font-family:Barlow,sans-serif;font-size:14px;fill:var(--ink);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+svg .t-mute{fill:var(--mute)}
+svg .t-big{font:700 18px "Barlow Condensed",sans-serif}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{font-weight:600;text-align:left;color:var(--mute);font-size:13px;border-bottom:1.5px solid var(--line);padding:6px 8px}
+td{padding:7px 8px;border-bottom:1px solid rgba(197,219,255,.25);white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td.k{font:700 17px "Barlow Condensed",sans-serif}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(15em,1fr));gap:14px 28px;margin:0;padding:0;list-style:none}
+.notes li{border-top:1.5px solid var(--line);padding-top:8px;color:var(--ink)}
+.notes li b{display:block;font:700 18px "Barlow Condensed",sans-serif}
+.small{font-size:13px;color:var(--mute);margin:10px 0 0}
+@media(max-width:600px){.head{grid-template-columns:minmax(0,1fr)}.figs b{font-size:28px}table{font-size:13px}th,td{padding:6px 4px}.stack thead{display:none}.stack tr{display:grid;padding-block:8px;border-bottom:1px solid rgba(197,219,255,.25)}.stack td{display:flex;justify-content:space-between;gap:12px;border:0;padding:2px 0}.stack td::before{content:attr(data-l);color:var(--mute)}}
+</style>
+
+<div class="band">
+  <header class="head">
+    <div>
+      <h1>Dirt jump line blueprint</h1>
+      <p id="lede">Four jumps that grow from a beginner tabletop to a 4.4&nbsp;m double, fed by a 3.5&nbsp;m start hill, with a berm and a return line. Proposed for the game; not built yet.</p>
+    </div>
+    <div class="figs" id="figs"></div>
+  </header>
+  <section class="sheet">
+    <div class="cap"><span>Side elevation, main line &middot; dashed: flight path at the ideal speed</span><span>Heights drawn &times;2 for clarity &middot; metres</span></div>
+    <div class="scroll"><div class="fig" id="elev"></div></div>
+  </section>
+  <section class="sheet">
+      <div class="cap"><span>Plan view</span><span>Track 2.4&nbsp;m wide &middot; berm radius 6&nbsp;m</span></div>
+      <div class="scroll"><div class="fig" id="plan"></div></div>
+    </section>
+    <section class="sheet">
+      <h2>Jump specs</h2>
+      <div class="scroll">
+        <table class="stack" id="specs">
+          <thead><tr><th>Jump</th><th class="n">Lip</th><th class="n">Gap</th><th class="n">Landing</th><th class="n">Min</th><th class="n">Ideal</th><th class="n">Air</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="small">Min: slowest speed off the lip that still clears the landing's knuckle. Ideal: lands a third of the way down the landing. Speeds at the lip, no drag; the rider adds or soaks up a little with a pump or a pop.</p>
+    </section>
+  <section class="sheet">
+    <h2>Build notes</h2>
+    <ul class="notes" id="notes"></ul>
+  </section>
+</div>
+
+<script>
+{
+const G = 9.81, WIDTH = 2.4, SHOULDER = 1.4, EXAG = 2;
+// main line, in riding order: start hill, then jumps with the run-in before each
+const START = {deck: 3, top: 3.5, rollin: 9};
+const JUMPS = [
+  {id: "J1", name: "Tabletop", kind: "table", run: 4.0, h: 0.9, ang: 30, len: 2.5, landH: 0.9, landAng: 25},
+  {id: "J2", name: "First double", kind: "double", run: 3.0, h: 1.1, ang: 32, len: 3.2, landH: 1.3, landAng: 30},
+  {id: "J3", name: "Second double", kind: "double", run: 2.5, h: 1.2, ang: 34, len: 3.8, landH: 1.4, landAng: 30},
+  {id: "J4", name: "Big double", kind: "double", run: 2.6, h: 1.3, ang: 35, len: 4.4, landH: 1.5, landAng: 28},
+];
+const RUNOUT = 2.5, KNUCKLE = 0.3, BACK = 60;
+const rad = d => d * Math.PI / 180;
+
+// ---- profile: build the surface as points [x, y]
+const P = [[0, START.top], [START.deck, START.top]];
+for (let i = 1; i <= 30; i++) {
+  const t = i / 30, s = t * t * (3 - 2 * t);
+  P.push([START.deck + START.rollin * t, START.top * (1 - s)]);
+}
+let x = START.deck + START.rollin;
+for (const j of JUMPS) {
+  x += j.run; P.push([x, 0]);
+  j.x0 = x;
+  const th = rad(j.ang), R = j.h / (1 - Math.cos(th));
+  for (let i = 1; i <= 16; i++) { const a = th * i / 16; P.push([x + R * Math.sin(a), R * (1 - Math.cos(a))]); }
+  x += R * Math.sin(th); j.lip = x;
+  if (j.kind === "table") {
+    x += j.len; P.push([x, j.h]);
+  } else {
+    const b = j.h / Math.tan(rad(BACK)); P.push([x + b, 0]);
+    x += j.len; j.gapFrom = j.lip;
+    P.push([x - j.landH / Math.tan(rad(BACK)), 0]); P.push([x, j.landH]);
+  }
+  j.knuckle = x;
+  x += KNUCKLE; P.push([x, j.landH]);
+  j.slopeLen = j.landH / Math.tan(rad(j.landAng));
+  x += j.slopeLen; P.push([x, 0]); j.x1 = x;
+}
+x += RUNOUT; P.push([x, 0]);
+const LEN = x;
+const groundAt = u => {
+  for (let i = 1; i < P.length; i++) if (P[i][0] >= u) {
+    const [a, ya] = P[i - 1], [b, yb] = P[i];
+    return b === a ? Math.max(ya, yb) : ya + (yb - ya) * (u - a) / (b - a);
+  }
+  return 0;
+};
+
+// ---- speeds: v^2 = g dx^2 / (2 cos^2(th) (dx tan(th) - dy))
+const vFor = (j, dx, dy) => { const th = rad(j.ang); return Math.sqrt(G * dx * dx / (2 * Math.cos(th) ** 2 * (dx * Math.tan(th) - dy))); };
+for (const j of JUMPS) {
+  const k = j.knuckle - j.lip;
+  j.vMin = j.kind === "table" ? 0 : vFor(j, k, j.landH - j.h);
+  const s = 0.35 * j.slopeLen;
+  j.tx = k + KNUCKLE + s; j.ty = j.landH - s * Math.tan(rad(j.landAng)) - j.h;
+  j.vIdeal = vFor(j, j.tx, j.ty);
+  j.air = j.tx / (j.vIdeal * Math.cos(rad(j.ang)));
+  // dirt: area under this feature's profile x width x shoulder factor
+  let area = 0;
+  for (let u = j.x0; u < j.x1; u += 0.05) area += groundAt(u + 0.025) * 0.05;
+  j.dirt = area * WIDTH * SHOULDER;
+}
+let startArea = 0;
+for (let u = 0; u < START.deck + START.rollin; u += 0.05) startArea += groundAt(u + 0.025) * 0.05;
+const startDirt = startArea * 3.5 * SHOULDER;
+const totalDirt = startDirt + JUMPS.reduce((a, j) => a + j.dirt, 0);
+const kmh = v => (v * 3.6).toFixed(0);
+const rollInV = Math.sqrt(2 * G * START.top * 0.82);   // ~18% lost to rolling and air
+
+// ---- head figures
+document.getElementById("figs").innerHTML = [
+  [LEN.toFixed(0) + " m", "main line"],
+  [kmh(JUMPS[0].vIdeal) + "–" + kmh(JUMPS[3].vIdeal) + " km/h", "ideal lip speeds"],
+  [Math.round(totalDirt) + " m³", "dirt to move"],
+].map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join("");
+
+// ---- specs table
+document.querySelector("#specs tbody").innerHTML = JUMPS.map(j => `<tr>
+  <td class="k" data-l="Jump">${j.id} ${j.name}</td>
+  <td class="n" data-l="Lip">${j.h.toFixed(1)} m @ ${j.ang}°</td>
+  <td class="n" data-l="Gap / table">${j.len.toFixed(1)} m${j.kind === "table" ? " table" : ""}</td>
+  <td class="n" data-l="Landing">${j.landH.toFixed(1)} m @ ${j.landAng}°</td>
+  <td class="n" data-l="Min speed">${j.kind === "table" ? "any" : kmh(j.vMin) + " km/h"}</td>
+  <td class="n" data-l="Ideal speed">${kmh(j.vIdeal)} km/h</td>
+  <td class="n" data-l="Air time">${j.air.toFixed(2)} s</td></tr>`).join("");
+
+// ---- notes
+const notes = [
+  ["Start hill", `${START.top} m deck, ${START.rollin} m roll-in. Coasting it gives about ${kmh(rollInV)} km/h at the bottom, enough for J1 and J2 without pedalling.`],
+  ["Progression", "Each lip is 0.1 m taller and 1 to 2° steeper than the last, and each gap 0.6 m longer, so speed carried from one landing sets up the next."],
+  ["Landings", "Every landing is taller than its lip (step-up of 0.1 to 0.2 m) and 25 to 30° steep, so a short jump still lands on slope, not on the knuckle edge."],
+  ["Gaps", "Doubles have open gaps between steep back faces. Fill J2's gap to a table first while learning; it uses the same lip and landing."],
+  ["Dirt", `About ${Math.round(startDirt)} m³ for the start hill and ${Math.round(totalDirt - startDirt)} m³ for the jumps, packed clay-rich soil. Lips are shaped wet, then packed.`],
+  ["Return line", "Past the berm: three 0.4 m rollers at 4 m spacing, a hip jump angled 30° off the line, and a 0.8 m tabletop into the run-out by the start hill."],
+];
+document.getElementById("notes").innerHTML = notes.map(([b, t]) => `<li><b>${b}</b>${t}</li>`).join("");
+
+// ---- elevation drawing
+const elev = document.getElementById("elev");
+const drawElev = () => {
+  const W = elev.clientWidth, H = elev.clientHeight, ml = 16, mr = 16, mt = 30, mb = 64;
+  const sx = (W - ml - mr) / LEN;
+  const sy = Math.min(sx * EXAG, (H - mt - mb) / START.top);
+  const X = u => ml + u * sx, Y = v => H - mb - v * sy;
+  const surf = P.map(([u, v], i) => `${i ? "L" : "M"}${X(u).toFixed(1)},${Y(v).toFixed(1)}`).join("");
+  let s = `<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="var(--line)" stroke-width="1" opacity=".45"/></pattern></defs>`;
+  s += `<path d="${surf}L${X(LEN)},${Y(0)}L${X(0)},${Y(0)}Z" fill="url(#hatch)"/>`;
+  s += `<path d="${surf}" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>`;
+  s += `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(LEN)}" y2="${Y(0)}" stroke="var(--line)" stroke-width="1"/>`;
+  // start hill height
+  s += `<text x="${X(START.deck / 2)}" y="${Y(START.top) - 12}" text-anchor="middle">start ${START.top} m</text>`;
+  for (const j of JUMPS) {
+    // flight path at ideal speed
+    const th = rad(j.ang), v = j.vIdeal, pts = [];
+    for (let t = 0; t <= j.air + 1e-6; t += j.air / 40) {
+      pts.push([j.lip + v * Math.cos(th) * t, j.h + v * Math.sin(th) * t - G * t * t / 2]);
+    }
+    s += `<path d="${pts.map(([u, w], i) => `${i ? "L" : "M"}${X(u).toFixed(1)},${Y(w).toFixed(1)}`).join("")}" fill="none" stroke="var(--fly)" stroke-width="2" stroke-dasharray="6 5"/>`;
+    const top = Math.max(...pts.map(p => p[1]));
+    const mid = pts[Math.floor(pts.length / 2)];
+    s += `<text class="t-big" x="${X(mid[0])}" y="${Y(top) - 10}" text-anchor="middle">${j.id}</text>`;
+    // dimension line under the ground: gap (doubles) or table length
+    const y0 = Y(0) + 22, a = X(j.lip), b = X(j.knuckle), col = j.kind === "table" ? "var(--line)" : "var(--gap)";
+    s += `<line x1="${a}" y1="${Y(0) + 4}" x2="${a}" y2="${y0 + 6}" stroke="${col}"/><line x1="${b}" y1="${Y(0) + 4}" x2="${b}" y2="${y0 + 6}" stroke="${col}"/>`;
+    s += `<line x1="${a}" y1="${y0}" x2="${b}" y2="${y0}" stroke="${col}" stroke-width="1.5"/>`;
+    s += `<text x="${(a + b) / 2}" y="${y0 + 20}" text-anchor="middle" style="fill:${col}">${j.len.toFixed(1)} m</text>`;
+    s += `<text class="t-mute" x="${(a + b) / 2}" y="${y0 + 38}" text-anchor="middle">${j.kind === "table" ? "table" : "gap"}</text>`;
+  }
+  // scale bar
+  s += `<line x1="${X(0)}" y1="${H - 8}" x2="${X(10)}" y2="${H - 8}" stroke="var(--ink)" stroke-width="2"/><text class="t-mute" x="${X(10) + 8}" y="${H - 3}">10 m</text>`;
+  elev.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Side elevation of the main line">${s}</svg>`;
+};
+
+// ---- plan drawing
+const plan = document.getElementById("plan");
+const drawPlan = () => {
+  const W = plan.clientWidth, H = plan.clientHeight, ml = 24, mr = 24;
+  const R = 6, total = LEN + R + 1.5;
+  const sx = Math.min((W - ml - mr) / total, (H - 64) / (2 * R + WIDTH + 1.6));
+  const ox = ml + ((W - ml - mr) - total * sx) / 2;
+  const cy = H / 2, X = u => ox + u * sx, Yp = v => cy - v * sx;
+  const w = WIDTH * sx;
+  const yA = R, yB = -R;
+  let s = "";
+  // track outline: line A, berm, line B
+  const pathC = (off) => `M${X(0)},${Yp(yA + off)}L${X(LEN)},${Yp(yA + off)}A${(R + off) * sx},${(R + off) * sx} 0 0 1 ${X(LEN)},${Yp(yB - off)}L${X(3)},${Yp(yB - off)}`;
+  s += `<path d="${pathC(0)}" fill="none" stroke="var(--line)" stroke-width="${w}" stroke-opacity=".18"/>`;
+  s += `<path d="${pathC(WIDTH / 2)}" fill="none" stroke="var(--line)" stroke-width="1.2"/><path d="${pathC(-WIDTH / 2)}" fill="none" stroke="var(--line)" stroke-width="1.2"/>`;
+  s += `<path d="${pathC(0)}" fill="none" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 6" opacity=".7"/>`;
+  // berm wall
+  s += `<path d="M${X(LEN)},${Yp(yA + WIDTH / 2 + 0.8)}A${(R + WIDTH / 2 + 0.8) * sx},${(R + WIDTH / 2 + 0.8) * sx} 0 0 1 ${X(LEN)},${Yp(yB - WIDTH / 2 - 0.8)}" fill="none" stroke="var(--ink)" stroke-width="${0.8 * sx}" stroke-opacity=".5"/>`;
+  s += `<text x="${X(LEN + R + 1.2) - 4}" y="${cy + 5}" text-anchor="end">berm</text>`;
+  // start deck
+  s += `<rect x="${X(0)}" y="${Yp(yA + 1.75)}" width="${START.deck * sx}" height="${3.5 * sx}" fill="var(--ink)" fill-opacity=".85"/>`;
+  s += `<rect x="${X(START.deck)}" y="${Yp(yA + 1.4)}" width="${START.rollin * sx}" height="${2.8 * sx}" fill="var(--ink)" fill-opacity=".3"/>`;
+  s += `<text x="${X(0)}" y="${Yp(yA + 1.75) - 8}">start</text>`;
+  // jumps on line A
+  for (const j of JUMPS) {
+    const y1 = Yp(yA + WIDTH / 2), hgt = WIDTH * sx;
+    s += `<rect x="${X(j.x0)}" y="${y1}" width="${(j.lip - j.x0) * sx}" height="${hgt}" fill="var(--ink)" fill-opacity=".55"/>`;
+    if (j.kind === "table") s += `<rect x="${X(j.lip)}" y="${y1}" width="${(j.knuckle - j.lip) * sx}" height="${hgt}" fill="var(--ink)" fill-opacity=".3"/>`;
+    else s += `<rect x="${X(j.lip)}" y="${y1}" width="${(j.knuckle - j.lip) * sx}" height="${hgt}" fill="none" stroke="var(--gap)" stroke-dasharray="4 4"/>`;
+    s += `<rect x="${X(j.knuckle)}" y="${y1}" width="${(j.x1 - j.knuckle) * sx}" height="${hgt}" fill="var(--ink)" fill-opacity=".4"/>`;
+    s += `<text class="t-big" x="${X((j.x0 + j.x1) / 2)}" y="${y1 - 8}" text-anchor="middle">${j.id}</text>`;
+  }
+  // return line: rollers, hip, table
+  const yb1 = Yp(yB + WIDTH / 2), hb = WIDTH * sx;
+  [LEN - 6, LEN - 10, LEN - 14].forEach(u => { s += `<ellipse cx="${X(u)}" cy="${Yp(yB)}" rx="${1.6 * sx}" ry="${WIDTH / 2 * sx}" fill="var(--ink)" fill-opacity=".35"/>`; });
+  s += `<text x="${X(LEN - 10)}" y="${yb1 + hb + 20}" text-anchor="middle">rollers</text>`;
+  const hx = X(LEN - 24), hy = Yp(yB);
+  s += `<rect x="${hx - 2 * sx}" y="${hy - 1.2 * sx}" width="${4 * sx}" height="${2.4 * sx}" transform="rotate(-30 ${hx} ${hy})" fill="var(--ink)" fill-opacity=".5"/>`;
+  s += `<text x="${hx}" y="${yb1 + hb + 20}" text-anchor="middle">hip</text>`;
+  s += `<rect x="${X(12)}" y="${yb1}" width="${7 * sx}" height="${hb}" fill="var(--ink)" fill-opacity=".3"/>`;
+  s += `<text x="${X(15.5)}" y="${yb1 + hb + 20}" text-anchor="middle">table 0.8 m</text>`;
+  // riding direction
+  s += `<path d="M${X(22)},${Yp(yA) }l14,0" stroke="var(--fly)" stroke-width="2" marker-end="url(#arr)"/>`;
+  s += `<path d="M${X(30)},${Yp(yB)}l-14,0" stroke="var(--fly)" stroke-width="2" marker-end="url(#arr)"/>`;
+  s = `<defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10Z" fill="var(--fly)"/></marker></defs>` + s;
+  plan.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Plan view of the track">${s}</svg>`;
+};
+
+const roE = new ResizeObserver(drawElev); roE.observe(elev);
+const roP = new ResizeObserver(drawPlan); roP.observe(plan);
+}
+</script>

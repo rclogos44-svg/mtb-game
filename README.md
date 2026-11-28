@@ -12,9 +12,10 @@ a climb, a rock-garden descent and a tabletop jump with a long landing.
 
 | Keyboard | Controller | Action |
 |---|---|---|
-| W / ↑ | RT | Pedal |
-| S / ↓ | LT | Brake |
-| A D / ← → | Left stick | Steer |
+| W | RT | Pedal (shifts through a 12-speed 10–51 cassette by itself) |
+| S | LT | Brake |
+| A D / ← → | Left stick | Steer; in the air, spin |
+| ↑ ↓ | Right stick | Lean back / forward: W + ↑ = wheelie (coasting: manual); in the air, backflip / frontflip |
 | Space (hold, release) | A | Load the suspension, then pop a bunny hop |
 | R | Y | Reset |
 | 2 / G, 1 | | Go to the top of the trail, back to the baseplate |
@@ -23,7 +24,7 @@ a climb, a rock-garden descent and a tabletop jump with a long landing.
 | Right-drag, mouse wheel | | Look around, zoom |
 
 On a phone or tablet, on-screen buttons appear instead (turn the phone
-sideways): steer with the left thumb, PEDAL / BRAKE / HOP with the right, and
+sideways): a d-pad for the left thumb (steer/spin, wheelie/flips), PEDAL / BRAKE / HOP with the right, and
 CAM / TRAIL / BASE / RESET along the top. Several fingers work at once.
 
 The panel in the corner shows live fork and shock travel, spring rate, air
@@ -108,3 +109,16 @@ the whole trail (rock garden + jump) at three pedalling efforts.
 run-in, a 1 m takeoff at 28°, a 2.6 m table, and a 30° landing that runs down
 to the ground. Coasting rolls the table; a light pedal lands on the sweet spot;
 flat-out overshoots to the bottom, like a real tabletop.
+
+## Tricks
+
+* **Wheelie**: pedal and hold ↑. The rider leans back and holds the bike just
+  short of its balance point (~30°); coasting gives a lower manual that fades.
+* **Flips**: ↑ / ↓ in the air throw a backflip / frontflip (up to 7.5 rad/s).
+* **Spins**: ← / → in the air spin the bike.
+* Let go near the end: the rider spots the landing and stops the rotation
+  lined up with the flight path. The tabletop on the trail has enough air for
+  a backflip, frontflip or 360 at a moderate pedal.
+
+A proposed full dirt jump line (not in the game yet) is drawn up in
+`design/dirt_jump_blueprint.html`.

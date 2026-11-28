@@ -143,6 +143,7 @@ func _front() -> void:
 
 func _drivetrain(dt: float) -> void:
 	var a := bike.crank_angle
+	cog_r = float(bike.cog_teeth()) * 0.0127 / TAU      # chain runs onto the gear in use
 	if parts.has("Cranks"):
 		var t: Transform3D = rest["Cranks"]
 		t.basis = Basis(Vector3.RIGHT, -a) * t.basis
@@ -223,6 +224,9 @@ func _rider_body(dt: float) -> void:
 	target.y -= 0.09 * bike.hop_charge                                  # crouch to load a hop...
 	target.z += 0.17 * bike.hop_charge                                  # ...down and back, behind the saddle
 	target.z += 0.10 * bike.weight_back                                 # hips back under braking
+	target.z += 0.12 * clampf(bike.in_tilt, -0.6, 1.0)                  # lean back for a wheelie / flip, forward for a nose-down
+	if bike.wheelie:
+		target.y -= 0.04
 	if not (bike.rear.contact or bike.front.contact):
 		target.y -= 0.06                                                # ready position in the air
 	var w := TAU * HIP_FREQ

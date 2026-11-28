@@ -6,7 +6,7 @@ extends CanvasLayer
 ##
 ## Layout (landscape):
 ##   top right  : CAM  TRAIL  BASE  RESET
-##   left thumb : steer left / right (slide between them)
+##   left thumb : d-pad: steer / spin left-right, wheelie / flip up-down
 ##   right thumb: PEDAL (big), BRAKE, HOP
 
 const MARGIN := 46.0
@@ -16,8 +16,10 @@ var buttons := {}          # name -> TouchScreenButton
 
 func _ready() -> void:
 	layer = 5
-	_add("left", "steer_left", 118.0, "arrow_left", "", true)
-	_add("right", "steer_right", 118.0, "arrow_right", "", true)
+	_add("left", "steer_left", 96.0, "arrow_left", "", true)
+	_add("right", "steer_right", 96.0, "arrow_right", "", true)
+	_add("up", "tilt_back", 88.0, "arrow_up", "", true)
+	_add("down", "tilt_forward", 88.0, "arrow_down", "", true)
 	_add("pedal", "pedal", 128.0, "circle", "PEDAL", true)
 	_add("brake", "brake", 98.0, "circle", "BRAKE", true)
 	_add("hop", "hop", 98.0, "circle", "HOP", true)
@@ -31,8 +33,13 @@ func _layout() -> void:
 	var sz := get_viewport().get_visible_rect().size
 	var w := sz.x
 	var h := sz.y
-	_place("left", Vector2(MARGIN + 130.0, h - MARGIN - 135.0))
-	_place("right", Vector2(MARGIN + 395.0, h - MARGIN - 135.0))
+	# left thumb: a d-pad. Left/right steer (and spin in the air), up/down
+	# lean back/forward (wheelie on the ground, flips in the air)
+	var c := Vector2(MARGIN + 300.0, h - MARGIN - 205.0)
+	_place("left", c + Vector2(-190.0, 0.0))
+	_place("right", c + Vector2(190.0, 0.0))
+	_place("up", c + Vector2(0.0, -112.0))
+	_place("down", c + Vector2(0.0, 112.0))
 	_place("pedal", Vector2(w - MARGIN - 145.0, h - MARGIN - 150.0))
 	_place("brake", Vector2(w - MARGIN - 400.0, h - MARGIN - 105.0))
 	_place("hop", Vector2(w - MARGIN - 175.0, h - MARGIN - 420.0))
@@ -107,9 +114,12 @@ static func _texture(size: Vector2, kind: String, pressed: bool) -> ImageTexture
 			# antialias the outer edge
 			col.a *= clampf(-d, 0.0, 1.0)
 			if kind.begins_with("arrow"):
-				var s := -1.0 if kind == "arrow_left" else 1.0
-				var lx := (p.x - c.x) * s / (w * 0.5)       # -1..1, + toward the arrow tip
-				var ly := absf(p.y - c.y) / (h * 0.5)
+				var vert := kind == "arrow_up" or kind == "arrow_down"
+				var s := -1.0 if (kind == "arrow_left" or kind == "arrow_up") else 1.0
+				var along := (p.y - c.y) if vert else (p.x - c.x)
+				var across := (p.x - c.x) if vert else (p.y - c.y)
+				var lx := along * s / (w * 0.5)       # -1..1, + toward the arrow tip
+				var ly := absf(across) / (h * 0.5)
 				if lx < 0.42 and lx > -0.30 and ly < (0.42 - lx) * 0.75:
 					col = Color(1, 1, 1, 0.95 if pressed else 0.8)
 			img.set_pixel(x, y, col)

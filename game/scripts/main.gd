@@ -83,7 +83,8 @@ static func make_bike(xform: Transform3D) -> Bike:
 
 func _bind_inputs() -> void:
 	var keys := {
-		"pedal": [KEY_W, KEY_UP], "brake": [KEY_S, KEY_DOWN],
+		"pedal": [KEY_W], "brake": [KEY_S],
+		"tilt_back": [KEY_UP], "tilt_forward": [KEY_DOWN],
 		"steer_left": [KEY_A, KEY_LEFT], "steer_right": [KEY_D, KEY_RIGHT],
 		"hop": [KEY_SPACE], "reset": [KEY_R], "camera": [KEY_C], "slowmo": [KEY_T],
 		"goto_trail": [KEY_2, KEY_G], "goto_base": [KEY_1],
@@ -96,7 +97,8 @@ func _bind_inputs() -> void:
 			e.physical_keycode = k
 			InputMap.action_add_event(action, e)
 	var axes := {"pedal": [JOY_AXIS_TRIGGER_RIGHT, 1.0], "brake": [JOY_AXIS_TRIGGER_LEFT, 1.0],
-		"steer_left": [JOY_AXIS_LEFT_X, -1.0], "steer_right": [JOY_AXIS_LEFT_X, 1.0]}
+		"steer_left": [JOY_AXIS_LEFT_X, -1.0], "steer_right": [JOY_AXIS_LEFT_X, 1.0],
+		"tilt_back": [JOY_AXIS_RIGHT_Y, 1.0], "tilt_forward": [JOY_AXIS_RIGHT_Y, -1.0]}
 	for action in axes:
 		var j := InputEventJoypadMotion.new()
 		j.axis = axes[action][0]

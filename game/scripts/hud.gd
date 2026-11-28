@@ -44,7 +44,7 @@ func _ready() -> void:
 		vb.add_child(row)
 		bars[k] = pb
 	help = Label.new()
-	help.text = "W pedal   S brake   A/D steer   Space hold+release hop\nR reset   2 trail   1 baseplate   C camera   T slow-mo   right-drag look   wheel zoom"
+	help.text = "W pedal   S brake   A/D or Left/Right steer (spin in the air)   Up/Down lean back/forward: wheelie, flips   Space hop\nR reset   2 trail   1 baseplate   C camera   T slow-mo   right-drag look   wheel zoom"
 	help.add_theme_font_size_override("font_size", 13)
 	help.modulate = Color(1, 1, 1, 0.8)
 	help.anchor_top = 1.0
@@ -69,7 +69,7 @@ func _process(_dt: float) -> void:
 		bars["Fork"].value = bike.front.s / bike.front.travel * 100.0
 		bars["Shock"].value = bike.rear.s / bike.rear.travel * 100.0
 		return
-	label.text = "%4.1f km/h   cadence %3d rpm\n" % [bike.speed_kmh(), int(bike.cadence_rpm)] \
+	label.text = "%4.1f km/h   cadence %3d rpm   gear %d/%d (%dt)\n" % [bike.speed_kmh(), int(bike.cadence_rpm), bike.gear + 1, Bike.CASSETTE.size(), bike.cog_teeth()] \
 		+ "Fork   %5.1f / %d mm   %d psi\n" % [bike.fork_travel_mm(), int(ft), int(bike.fork.psi())] \
 		+ "Shock  %4.1f / %d mm stroke   %d lb/in coil\n" % [bike.shock_stroke_mm(), int(bike.geo["shock_stroke"] * 1000), bike.shock.lbs_per_in()] \
 		+ "Rear wheel %5.1f / %d mm   (max used %d)\n" % [bike.rear.s * 1000.0, int(rt), int(bike.rear.max_s * 1000.0)] \

@@ -18,7 +18,14 @@ const TYRE_DAMP := 400.0
 const REAR_UNSPRUNG := 4.5        # kg at the axle: wheel, tyre, cassette, part of the swingarm
 const FRONT_UNSPRUNG := 3.5       # kg: wheel, tyre, fork lowers
 const WHEEL_SUBSTEPS := 8
-const RIDER_LEG_DAMPING := 3200.0  # N per m/s: the rider's legs and arms on a landing
+const RIDER_LEG_DAMPING := 3200.0
+const WHEELIE_PITCH := deg_to_rad(30.0)   # pedalling wheelie, just short of the balance point (~35)
+const MANUAL_PITCH := deg_to_rad(18.0)    # coasting manual
+const FLIP_TORQUE := 420.0        # N m the rider can throw into a flip
+const SPIN_TORQUE := 230.0        # N m for spins
+const MAX_FLIP_RATE := 7.5        # rad/s
+## 12-speed 10-51 cassette, smallest gear last
+const CASSETTE := [51, 45, 39, 33, 28, 24, 21, 18, 16, 14, 12, 10]  # N per m/s: the rider's legs and arms on a landing
 const TYRE_RELAX_LEN := 0.25      # m
 const MAX_LEAN := 0.56            # rad (32 deg), only reached in a held, sharp turn
 const STEER_LAT_G_TAP := 0.10     # g of cornering when the key has just been pressed
@@ -42,7 +49,7 @@ const WHEEL_RAY_ANGLES := [-0.9, -0.6, -0.35, -0.15, 0.0, 0.15, 0.35, 0.6, 0.9]
 @export_group("Tyres and drive")
 @export var tyre_grip := 1.05
 @export var max_drive_force := 330.0
-@export var max_power := 750.0
+@export var max_power := 1000.0
 @export var brake_force := 1150.0
 @export_group("Handling")
 @export var lean_stiffness := 2600.0
@@ -82,6 +89,9 @@ var in_pedal := 0.0
 var in_brake := 0.0
 var in_steer := 0.0
 var in_hop := false
+var in_tilt := 0.0         ## +1 = lean back / nose up (wheelie, backflip), -1 = forward
+var gear := 0              ## index into CASSETTE
+var wheelie := false       ## front up on purpose
 ## Set to a Callable(bike, time) -> Dictionary to drive the bike without input (tests).
 var autopilot: Callable
 
@@ -271,11 +281,13 @@ func _physics_process(dt: float) -> void:
 		# the bike is already well over, where the rider keeps full control
 		var leaned := absf(up_b.cross(Vector3.UP).dot(fwd_b)) > sin(deg_to_rad(15.0))
 		_lean_assist(up_b, fwd_b, 1.0 if (both or leaned) else 0.35)
-		if not both:
+		wheelie = _wheelie(fwd_b, right_b)
+		if not both and not wheelie:
 			_one_wheel_balance(fwd_b, right_b)
 		# the rider's arms and legs soak up fast pitching (braking dive, landings)
 		apply_torque(right_b * (-angular_velocity.dot(right_b) * rider_pitch_damping))
 	else:
+		wheelie = false
 		_air_control(up_b, fwd_b, right_b)
 	# aerodynamic drag (rider + bike CdA ~0.55 m^2)
 	var v := linear_velocity
@@ -455,19 +467,60 @@ func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vec
 	w.spin += w.omega * dt
 
 
-## In the air the rider keeps the bike level and stops it twisting; pitch is
-## left mostly free (that's where flips will come from).
+## In the air the rider keeps the bike level and stops it twisting, unless
+## they're throwing a trick: up/down pitch it into a backflip/frontflip,
+## left/right spin it (a 360). Let go mid-trick and it keeps rotating.
 func _air_control(up_b: Vector3, fwd_b: Vector3, right_b: Vector3) -> void:
 	var level_err := up_b.cross(Vector3.UP).dot(fwd_b)
 	var w := angular_velocity
-	apply_torque(fwd_b * (air_roll_stiffness * level_err - air_roll_damping * w.dot(fwd_b)))
-	apply_torque(up_b * (-air_yaw_damping * w.dot(up_b)))
-	# rider keeps the bike lined up with the flight path (soft, so flips can override)
-	var pitch_err := 0.0
+	var flipping := absf(in_tilt) > 0.1
+	var spinning := absf(in_steer) > 0.1
+	# keep the wheels level side to side, but not while upside down in a flip
+	if up_b.dot(Vector3.UP) > 0.3:
+		apply_torque(fwd_b * (air_roll_stiffness * level_err - air_roll_damping * w.dot(fwd_b)))
 	var v := linear_velocity
-	if v.length() > 2.0:
-		pitch_err = fwd_b.cross(v.normalized()).dot(right_b)
-	apply_torque(right_b * (air_pitch_stiffness * pitch_err - air_pitch_damping * w.dot(right_b)))
+	var hv := Vector3(v.x, 0.0, v.z)
+	var hf := Vector3(fwd_b.x, 0.0, fwd_b.z)
+	if spinning:
+		apply_torque(up_b * (SPIN_TORQUE * signf(in_steer) * absf(in_steer)))
+	elif hv.length() > 2.0 and hf.length() > 0.3 and hf.normalized().dot(hv.normalized()) > cos(deg_to_rad(50.0)):
+		# spin let go and coming round to the direction of travel: the rider
+		# spots the landing and stops it lined up
+		var yaw_err := hf.normalized().cross(hv.normalized()).y
+		apply_torque(Vector3.UP * (260.0 * yaw_err - 75.0 * w.y))
+	else:
+		apply_torque(up_b * (-air_yaw_damping * w.dot(up_b)))
+	if flipping:
+		apply_torque(right_b * (FLIP_TORQUE * in_tilt))
+		return
+	# rider keeps the bike lined up with the flight path, but only when it's
+	# roughly pointing that way already, so a flip that's let go carries on
+	# round, then gets stopped as it comes back to the landing (spotting it)
+	if v.length() > 2.0 and fwd_b.dot(v.normalized()) > 0.5:
+		var pitch_err := fwd_b.cross(v.normalized()).dot(right_b)
+		var spot := 1.0 if absf(w.dot(right_b)) < 2.0 else 3.0
+		apply_torque(right_b * (air_pitch_stiffness * pitch_err - air_pitch_damping * spot * 2.5 * w.dot(right_b)))
+
+
+## Wheelies and manuals: holding up shifts the rider back and lifts the front
+## to a pitch just short of the balance point; pedalling holds it there (a
+## wheelie), coasting gives a lower manual that fades as speed drops. Down, or
+## letting go, sets the front back down. Returns true while the front is up on purpose.
+func _wheelie(fwd_b: Vector3, right_b: Vector3) -> bool:
+	if not rear.contact or in_tilt <= 0.1:
+		return false
+	var speed := linear_velocity.dot(fwd_b)
+	if speed < 1.0:
+		return false
+	var target := WHEELIE_PITCH if in_pedal > 0.3 else MANUAL_PITCH * clampf(speed / 5.0, 0.3, 1.0)
+	target *= clampf(in_tilt, 0.0, 1.0)
+	var pitch := asin(clampf(fwd_b.dot(rear.normal), -1.0, 1.0))      # nose up relative to the ground
+	var rate := angular_velocity.dot(right_b)
+	var tq := 1500.0 * (target - pitch) - 260.0 * rate
+	# lifting the front takes a pull plus a pedal stroke; past the balance point
+	# the rider dabs the rear brake / leans forward (the controller pushes back)
+	apply_torque(right_b * clampf(tq, -1600.0, 1100.0))
+	return true
 
 
 ## On one wheel the rider stops a wheelie or a nose-wheelie from going over:
@@ -518,8 +571,26 @@ func _hop(grounded: bool, up_b: Vector3, fwd_b: Vector3, com_g: Vector3, dt: flo
 		hop_charge = 0.0
 
 
+## The rider shifts like a real one: up a gear when spinning past ~95 rpm,
+## down when bogging under ~60.
+func _shift() -> void:
+	if not rear.contact:
+		return
+	var ring := float(geo["chainring_teeth"])
+	var rpm_at := func(i: int) -> float: return absf(rear.omega) * float(CASSETTE[i]) / ring * 60.0 / TAU
+	if gear < CASSETTE.size() - 1 and rpm_at.call(gear) > 95.0:
+		gear += 1
+	elif gear > 0 and rpm_at.call(gear) < 60.0 and rpm_at.call(gear - 1) < 95.0:
+		gear -= 1
+
+
+func cog_teeth() -> int:
+	return CASSETTE[gear]
+
+
 func _cranks(dt: float) -> void:
-	var ratio := float(geo["cog_teeth"]) / float(geo["chainring_teeth"])
+	_shift()
+	var ratio := float(cog_teeth()) / float(geo["chainring_teeth"])
 	if in_pedal > 0.05 and rear.contact and rear.omega > 0.0:
 		var w := rear.omega * ratio
 		crank_angle += w * dt
@@ -554,7 +625,8 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var lim := max_twist_rate
 	# on the ground a rider can't flick the bike from lean to lean faster than ~1.8 rad/s
 	var roll_lim := MAX_ROLL_RATE_GROUND if (rear.contact or front.contact) else lim
-	if absf(wl.y) > lim or absf(wl.z) > roll_lim:
+	if absf(wl.y) > lim or absf(wl.z) > roll_lim or absf(wl.x) > MAX_FLIP_RATE:
+		wl.x = clampf(wl.x, -MAX_FLIP_RATE, MAX_FLIP_RATE)
 		wl.y = clampf(wl.y, -lim, lim)
 		wl.z = clampf(wl.z, -roll_lim, roll_lim)
 		state.angular_velocity = bas * wl
@@ -573,6 +645,8 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		lean_target = 0.0
 		air_time = 0.0
 		absorb_time = 0.0
+		gear = 0
+		wheelie = false
 		upside_down_time = 0.0
 		_reset_pending = false
 
@@ -584,11 +658,13 @@ func _read_input() -> void:
 		in_brake = c.get("brake", 0.0)
 		in_steer = c.get("steer", 0.0)
 		in_hop = c.get("hop", false)
+		in_tilt = c.get("tilt", 0.0)
 		return
 	in_pedal = Input.get_action_strength("pedal")
 	in_brake = Input.get_action_strength("brake")
 	in_steer = Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
 	in_hop = Input.is_action_pressed("hop")
+	in_tilt = Input.get_action_strength("tilt_back") - Input.get_action_strength("tilt_forward")
 	if Input.is_action_just_pressed("reset"):
 		reset_bike()
 

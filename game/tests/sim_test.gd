@@ -11,6 +11,8 @@ var flip_period := 1.5
 var flip_pedal := 1.0
 var flip_brake := 0.0
 var trail_effort := 0.3
+var trick := {}
+var trick_rot := Vector3.ZERO
 
 
 func check(name: String, ok: bool, detail: String) -> void:
@@ -51,7 +53,18 @@ func pilot(_b, _t: float) -> Dictionary:
 		"trail":
 			var off: float = _b.global_position.x - Trail.X0
 			var yaw_err: float = (-_b.global_transform.basis.z).x
-			return {"pedal": 1.0 if _t < 1.5 else trail_effort, "steer": clampf(off * 0.6 + yaw_err * 3.0, -1.0, 1.0)}
+			var c := {"pedal": 1.0 if _t < 1.5 else trail_effort, "steer": clampf(off * 0.6 + yaw_err * 3.0, -1.0, 1.0)}
+			# trick off the tabletop: hold it until nearly round, then let go (like a player)
+			if not trick.is_empty() and not (_b.rear.contact or _b.front.contact) and _b.global_position.z < -24.0 \
+					and maxf(absf(trick_rot.x), absf(trick_rot.y)) < deg_to_rad(290.0):
+				c.merge(trick, true)
+			return c
+		"sprint":
+			return {"pedal": 1.0}
+		"wheelie_in":
+			return {"pedal": 1.0 if _b.linear_velocity.length() < 4.0 else 0.0}
+		"wheelie":
+			return {"pedal": 1.0 if _b.linear_velocity.length() < 4.5 else 0.4, "tilt": 1.0}
 	return {}
 
 
@@ -362,6 +375,62 @@ func _run(main) -> void:
 		var done := bike.global_position.z < -40.0
 		check("trail (pedal %.0f%%): rock garden + jump, stays up" % (eff * 100), done and not fell_t and worst_tilt < 40.0,
 			"lip %.1f m/s, max lean %.0f deg, reached z %.0f" % [lip_v, worst_tilt, bike.global_position.z])
+
+	# top speed: the rider shifts through the cassette
+	phase = "sprint"
+	bike.reset_bike(Transform3D(Basis(), Vector3(150, 0.05, 150)))
+	await wait(20.0)
+	check("top speed with gears", bike.speed_kmh() > 42.0 and bike.gear >= 9, "%.0f km/h after 20 s, gear %d (%dt)" % [bike.speed_kmh(), bike.gear + 1, bike.cog_teeth()])
+
+	# wheelie: pedal + lean back holds the front up without looping out
+	phase = "wheelie_in"
+	bike.reset_bike(Transform3D(Basis(), Vector3(-150, 0.05, 150)))
+	await wait(3.0)
+	phase = "wheelie"
+	var wmax := -90.0
+	var wmin := 90.0
+	var up_ticks := 0
+	for i in int(5.0 * Engine.physics_ticks_per_second):
+		await physics_frame
+		var pd := rad_to_deg(asin(clampf((-bike.global_transform.basis.z).y, -1.0, 1.0)))
+		wmax = maxf(wmax, pd)
+		if i > 120:
+			wmin = minf(wmin, pd)
+		if bike.rear.contact and not bike.front.contact:
+			up_ticks += 1
+	check("wheelie holds", wmin > 15.0 and wmax < 40.0 and up_ticks > 4.0 * Engine.physics_ticks_per_second,
+		"pitch %.0f-%.0f deg, front up %.1f of 5 s" % [wmin, wmax, up_ticks / Engine.physics_ticks_per_second])
+
+	# tricks off the trail's tabletop
+	phase = "trail"
+	trail_effort = 0.6
+	for tr in [[{"tilt": 1.0}, "backflip", 0], [{"steer": 1.0}, "360 spin", 1], [{"tilt": -1.0}, "frontflip", 0]]:
+		trick = tr[0]
+		trick_rot = Vector3.ZERO
+		bike.reset_bike(Trail.start_xform())
+		await wait(0.05)
+		bike.sim_time = 0.0
+		var prev_b := bike.global_transform.basis
+		var airborne := false
+		var landed_up := -1.0
+		var crashed := false
+		for i in int(14.0 * Engine.physics_ticks_per_second):
+			await physics_frame
+			var in_air := not (bike.rear.contact or bike.front.contact)
+			if in_air and bike.global_position.z < -24.0 and landed_up < -0.5:
+				airborne = true
+				trick_rot += (prev_b.inverse() * bike.global_transform.basis).get_euler()
+			elif airborne and landed_up < -0.5:
+				landed_up = bike.global_transform.basis.y.dot(Vector3.UP)
+			prev_b = bike.global_transform.basis
+			if bike.upside_down_time > 0.5:
+				crashed = true
+			if bike.global_position.z < -45.0:
+				break
+		var turned := absf(rad_to_deg(trick_rot.x if tr[2] == 0 else trick_rot.y))
+		check("%s off the tabletop lands" % tr[1], turned > 290.0 and landed_up > 0.6 and not crashed and bike.global_position.z < -40.0,
+			"rotated %.0f deg, landed with up %.2f" % [turned, landed_up])
+	trick = {}
 
 	print("RESULT: %s (%d failed)" % ["OK" if fails == 0 else "FAILED", fails])
 	quit(1 if fails else 0)
