@@ -19,6 +19,7 @@ const REAR_UNSPRUNG := 4.5        # kg at the axle: wheel, tyre, cassette, part 
 const FRONT_UNSPRUNG := 3.5       # kg: wheel, tyre, fork lowers
 const WHEEL_SUBSTEPS := 8
 const RIDER_LEG_DAMPING := 3200.0
+const PUMP_GAIN := 0.35           # pumping adds this share of gravity down the back of each bump
 const WHEELIE_PITCH := deg_to_rad(30.0)   # pedalling wheelie, just short of the balance point (~35)
 const MANUAL_PITCH := deg_to_rad(18.0)    # coasting manual
 const FLIP_TORQUE := 330.0        # N m the rider can throw into a flip
@@ -272,9 +273,18 @@ func _physics_process(dt: float) -> void:
 		air_time = 0.0
 	if absorb_time > 0.0:
 		absorb_time -= dt
-		var v_down := -linear_velocity.y
-		if v_down > 0.0:
-			apply_central_force(Vector3.UP * minf(v_down * RIDER_LEG_DAMPING, 1.4 * mass * GRAV))
+		# only the speed INTO the ground: on a sloped landing the speed along
+		# the slope is kept (that's the point of landing on a slope)
+		var gn := Vector3.ZERO
+		for w in [rear, front]:
+			if w.contact:
+				gn += w.normal
+		gn = gn.normalized() if gn.length() > 0.1 else Vector3.UP
+		var v_in := -linear_velocity.dot(gn)
+		if v_in > 0.0:
+			apply_central_force(gn * minf(v_in * RIDER_LEG_DAMPING, 1.4 * mass * GRAV))
+	if both and not wheelie:
+		_pump(fwd_b)
 	if grounded:
 		# on one wheel the lone tyre can't hold a full lean, so ease off
 		# on one wheel the lone tyre can't hold a full lean, so ease off - unless
@@ -500,6 +510,21 @@ func _air_control(up_b: Vector3, fwd_b: Vector3, right_b: Vector3) -> void:
 		var pitch_err := fwd_b.cross(v.normalized()).dot(right_b)
 		var spot := 1.0 if absf(w.dot(right_b)) < 2.0 else 3.0
 		apply_torque(right_b * (air_pitch_stiffness * pitch_err - air_pitch_damping * spot * 2.5 * w.dot(right_b)))
+
+
+## Pumping: on the down side of a landing or roller the rider pushes the bike
+## into the slope (and unweights it going up), which is how a real rider gains
+## speed without pedalling. Modelled as a share of gravity's pull down the slope.
+func _pump(fwd_b: Vector3) -> void:
+	var v := linear_velocity
+	var speed := v.length()
+	if speed < 2.0 or speed > 8.0:          # it gains speed, it doesn't make you fly downhill
+		return
+	var n := (rear.normal + front.normal).normalized()
+	var down_slope := -(Vector3.DOWN - n * Vector3.DOWN.dot(n)).dot(v.normalized())
+	# down_slope < 0 means the ground falls away ahead (sin of the slope)
+	if down_slope < -0.05:
+		apply_central_force(v.normalized() * mass * GRAV * PUMP_GAIN * -down_slope)
 
 
 ## Wheelies and manuals: holding up shifts the rider back and lifts the front

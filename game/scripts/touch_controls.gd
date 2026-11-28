@@ -5,7 +5,7 @@ extends CanvasLayer
 ## (steer with the left thumb while pedalling and hopping with the right).
 ##
 ## Layout (landscape):
-##   top right  : CAM  TRAIL  BASE  RESET
+##   top right  : CAM  PARK  TRAIL  BASE  RESET
 ##   left thumb : d-pad: steer / spin left-right; down = wheelie / backflip, up = frontflip
 ##   right thumb: PEDAL (big), BRAKE, HOP
 
@@ -23,7 +23,7 @@ func _ready() -> void:
 	_add("pedal", "pedal", 128.0, "circle", "PEDAL", true)
 	_add("brake", "brake", 98.0, "circle", "BRAKE", true)
 	_add("hop", "hop", 98.0, "circle", "HOP", true)
-	for b in [["cam", "camera", "CAM"], ["trail", "goto_trail", "TRAIL"], ["base", "goto_base", "BASE"], ["reset", "reset", "RESET"]]:
+	for b in [["cam", "camera", "CAM"], ["park", "goto_park", "PARK"], ["trail", "goto_trail", "TRAIL"], ["base", "goto_base", "BASE"], ["reset", "reset", "RESET"]]:
 		_add(b[0], b[1], 0.0, "pill", b[2], false)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -44,7 +44,7 @@ func _layout() -> void:
 	_place("brake", Vector2(w - MARGIN - 400.0, h - MARGIN - 105.0))
 	_place("hop", Vector2(w - MARGIN - 175.0, h - MARGIN - 420.0))
 	var x := w - MARGIN - 85.0
-	for n in ["reset", "base", "trail", "cam"]:
+	for n in ["reset", "base", "trail", "park", "cam"]:
 		_place(n, Vector2(x, MARGIN + 40.0))
 		x -= 190.0
 

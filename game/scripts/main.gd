@@ -48,6 +48,10 @@ static func is_touch() -> bool:
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("goto_trail"):
 		bike.reset_bike(Trail.start_xform())
+	elif e.is_action_pressed("goto_park"):
+		bike.reset_bike(Park.start_xform("pro"))
+	elif e.is_action_pressed("goto_park_easy"):
+		bike.reset_bike(Park.start_xform("beginner"))
 	elif e.is_action_pressed("goto_base"):
 		bike.reset_bike(Transform3D(Basis(), Vector3(0, 0.05, 0)))
 
@@ -88,6 +92,7 @@ func _bind_inputs() -> void:
 		"steer_left": [KEY_A, KEY_LEFT], "steer_right": [KEY_D, KEY_RIGHT],
 		"hop": [KEY_SPACE], "reset": [KEY_R], "camera": [KEY_C], "slowmo": [KEY_T],
 		"goto_trail": [KEY_2, KEY_G], "goto_base": [KEY_1],
+		"goto_park": [KEY_3, KEY_P], "goto_park_easy": [KEY_4],
 	}
 	for action in keys:
 		if not InputMap.has_action(action):
@@ -193,6 +198,11 @@ func _features() -> void:
 	trail.set_script(load("res://scripts/trail.gd"))
 	trail.name = "Trail"
 	add_child(trail)
+	# the dirt jump park from the blueprint, behind the rollers (see park.gd)
+	var park := Node3D.new()
+	park.set_script(load("res://scripts/park.gd"))
+	park.name = "Park"
+	add_child(park)
 	# kicker up onto a platform with a 0.7 m drop off the end
 	var deck := CSGBox3D.new()
 	deck.size = Vector3(3.5, 0.7, 6.0)

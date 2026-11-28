@@ -12,6 +12,9 @@ var flip_pedal := 1.0
 var flip_brake := 0.0
 var trail_effort := 0.3
 var trick := {}
+var park_x := 0.0
+var park_dir := -1.0
+var park_effort := 1.0
 var trick_rot := Vector3.ZERO
 
 
@@ -50,6 +53,10 @@ func pilot(_b, _t: float) -> Dictionary:
 			return {"hop": true}
 		"pedalhop":
 			return {"pedal": 1.0, "hop": true}
+		"park":
+			var off2: float = (_b.global_position.x - park_x) * -park_dir
+			var yaw2: float = (-_b.global_transform.basis.z).x * -park_dir
+			return {"pedal": 1.0 if _t < 1.0 else park_effort, "steer": clampf(off2 * 0.6 + yaw2 * 3.0, -1.0, 1.0)}
 		"trail":
 			var off: float = _b.global_position.x - Trail.X0
 			var yaw_err: float = (-_b.global_transform.basis.z).x
@@ -350,7 +357,8 @@ func _run(main) -> void:
 		hist.append(bike.rear.s)
 		if hist.size() >= 3:
 			chatter += absf(hist[-1] - 2.0 * hist[-2] + hist[-3])
-	check("rollers: rear wheel doesn't chatter", toggles <= 2 and chatter < 0.5, "contact lost %d times, roughness %.2f" % [toggles, chatter])
+	# (pumping adds speed over the crests, so it may float a crest or two)
+	check("rollers: rear wheel doesn't chatter", toggles <= 4 and chatter < 0.5, "contact lost %d times, roughness %.2f" % [toggles, chatter])
 
 	# the trail: rock garden and tabletop at a light pedal
 	phase = "trail"
@@ -432,6 +440,35 @@ func _run(main) -> void:
 		check("%s off the tabletop lands" % tr[1], turned > 290.0 and landed_up > 0.6 and not crashed and bike.global_position.z < -40.0,
 			"rotated %.0f deg, landed with up %.2f" % [turned, landed_up])
 	trick = {}
+
+	# the dirt jump park: each line start to finish
+	var park: Park = bike.get_parent().get_node("Park")
+	var flow_start := Transform3D(Basis(Vector3.UP, PI), Park.plan_to_world(Vector2(park.pro_len + 1.0, Park.Y_FLOW), 0.05))
+	var runs := [["pro line, full pedal", Park.start_xform("pro"), 0.0, -1.0, 1.0, Park.ORIGIN.y - park.pro_len + 1.0],
+		["pro line, 80% pedal", Park.start_xform("pro"), 0.0, -1.0, 0.8, Park.ORIGIN.y - park.pro_len + 1.0],
+		["beginner line", Park.start_xform("beginner"), -8.0, -1.0, 1.0, Park.ORIGIN.y - park.beg_len + 1.0],
+		["flow line", flow_start, 13.0, 1.0, 1.0, Park.ORIGIN.y - (park.pro_len - park.flow_len) - 1.0]]
+	phase = "park"
+	for r in runs:
+		park_x = r[2]
+		park_dir = r[3]
+		park_effort = r[4]
+		bike.reset_bike(r[1])
+		await wait(0.05)
+		bike.sim_time = 0.0
+		var fell_p := false
+		var done_p := false
+		var tilt_p := 0.0
+		for i in int(20.0 * Engine.physics_ticks_per_second):
+			await physics_frame
+			tilt_p = maxf(tilt_p, absf(roll_deg()))
+			if bike.global_transform.basis.y.dot(Vector3.UP) < 0.4:
+				fell_p = true
+			var z := bike.global_position.z
+			if (park_dir < 0.0 and z < r[5]) or (park_dir > 0.0 and z > r[5]):
+				done_p = true
+				break
+		check("park: %s, start to finish" % r[0], done_p and not fell_p, "max lean %.0f deg, %.0f km/h at the end" % [tilt_p, bike.speed_kmh()])
 
 	print("RESULT: %s (%d failed)" % ["OK" if fails == 0 else "FAILED", fails])
 	quit(1 if fails else 0)

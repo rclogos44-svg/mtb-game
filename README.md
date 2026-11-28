@@ -19,6 +19,7 @@ a climb, a rock-garden descent and a tabletop jump with a long landing.
 | Space (hold, release) | A | Load the suspension, then pop a bunny hop |
 | R | Y | Reset |
 | 2 / G, 1 | | Go to the top of the trail, back to the baseplate |
+| 3 / P, 4 | | Dirt jump park: top of the pro line, top of the beginner line |
 | C | X | Camera: chase → side (best for watching suspension) → orbit |
 | T | Back | Slow motion |
 | Right-drag, mouse wheel | | Look around, zoom |
@@ -120,5 +121,12 @@ flat-out overshoots to the bottom, like a real tabletop.
   lined up with the flight path. The tabletop on the trail has enough air for
   a backflip, frontflip or 360 at a moderate pedal.
 
-A proposed full dirt jump line (not in the game yet) is drawn up in
-`design/dirt_jump_blueprint.html`.
+## The dirt jump park
+
+`game/scripts/park.gd` builds the park from `design/dirt_jump_blueprint.html`
+behind the rollers (start hill about 86 m out from the spawn): a pro line
+(table, double, step-up, step-down), a beginner line (tables, rollers,
+transfer T1), a flow line (rollers, hip, table), transfer T2 off the first
+table, and three banked berms. One terrain mesh is also the collision.
+Dimensions are tuned so each line rides with pedalling between jumps; the
+rider also pumps the down side of landings and rollers for speed.
