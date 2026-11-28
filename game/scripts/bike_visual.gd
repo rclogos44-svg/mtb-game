@@ -199,7 +199,7 @@ var hand_miss := 0.0                 # how far the hands ended from the grips la
 const HIP_FREQ := 1.7                # Hz, rider's legs/arms as a suspension
 const HIP_DAMP := 0.65
 const HIP_MIN := Vector3(-0.05, -0.24, -0.12)
-const HIP_MAX := Vector3(0.05, 0.05, 0.24)
+const HIP_MAX := Vector3(0.05, 0.10, 0.26)
 
 
 func _rider_body(dt: float) -> void:
@@ -251,8 +251,12 @@ func _rider_body(dt: float) -> void:
 	trick = move_toward(trick, want, (5.0 if want > trick else 3.0) * dt)
 	trick_pitch = move_toward(trick_pitch, want_pitch, 4.0 * dt)
 	trick_spin = move_toward(trick_spin, want_spin, 4.0 * dt)
-	target.y -= 0.17 * trick
-	target.z += 0.08 * trick * trick_pitch
+	# backflips are laid out (body stretched long and arched, arms and legs
+	# nearly straight); frontflips and spins are tucked
+	var lay := trick * maxf(trick_pitch, 0.0)
+	var tuck := trick - lay
+	target.y += -0.17 * tuck + 0.03 * lay
+	target.z += 0.08 * trick * trick_pitch + 0.03 * lay
 	var w := TAU * HIP_FREQ
 	var a := -w * w * (hip_off - target) - 2.0 * HIP_DAMP * w * hip_vel - extra * 0.55
 	hip_vel += a * dt
@@ -277,15 +281,29 @@ func _rider_body(dt: float) -> void:
 	var D := Transform3D.IDENTITY
 	if parts.has("Steer"):
 		D = parts["Steer"].transform * (rest["Steer"] as Transform3D).affine_inverse()
+	# --- chest rounds and the head spots: thrown back to find the landing in a
+	# backflip, tucked in a frontflip, turned into a spin
+	if chest_bone >= 0 and trick > 0.01:
+		var cb := skel.get_bone_global_pose(chest_bone)
+		var lay_c := trick * maxf(trick_pitch, 0.0)
+		cb.basis = (Basis(Vector3.RIGHT, -0.22 * (trick - lay_c) + 0.24 * lay_c) * cb.basis).orthonormalized()
+		skel.set_bone_global_pose(chest_bone, cb)
+	if head_bone >= 0 and trick > 0.01:
+		var hb := skel.get_bone_global_pose(head_bone)
+		var look := Basis(Vector3.UP, 0.6 * trick * trick_spin) * Basis(Vector3.RIGHT, (0.55 + 0.3 * maxf(trick_pitch, 0.0)) * trick * trick_pitch)
+		hb.basis = (look * hb.basis).orthonormalized()
+		skel.set_bone_global_pose(head_bone, hb)
+
 	if spine_bone >= 0:
 		# Upper body: twist with the bars, and fold forward at the hips only as
 		# much as needed for both hands to reach their grips (as a rider does
 		# when crouching low or reaching for a turned bar).
 		var sp0 := skel.get_bone_global_pose(spine_bone)
 		# shoulders lead a spin; the chest drops toward the bars in a tuck
+		var lay_s := trick * maxf(trick_pitch, 0.0)
 		var twist := Basis(Vector3.UP, bike.bar_angle * 0.6 + 0.45 * trick * trick_spin)
-		var fold := clampf(hip_off.y * 0.8, -0.2, 0.05) - 0.25 * trick * (1.0 - 0.5 * maxf(trick_pitch, 0.0))
-		for k in 10:
+		var fold := clampf(hip_off.y * 0.8, -0.2, 0.05) - 0.25 * (trick - lay_s) + 0.12 * lay_s
+		for k in 16:
 			var sp := sp0
 			sp.basis = (twist * Basis(Vector3.RIGHT, fold) * sp0.basis).orthonormalized()
 			skel.set_bone_global_pose(spine_bone, sp)
@@ -298,21 +316,9 @@ func _rider_body(dt: float) -> void:
 				var reach := sh.distance_to(el) + el.distance_to(wr)
 				var h: Transform3D = hands[i]
 				worst = maxf(worst, sh.distance_to(D * h.origin) / reach)
-			if worst < 0.97 or fold < -0.7:
+			if worst < 0.97 or fold < -0.9:
 				break
 			fold -= 0.07
-
-	# --- chest rounds and the head spots: thrown back to find the landing in a
-	# backflip, tucked in a frontflip, turned into a spin
-	if chest_bone >= 0 and trick > 0.01:
-		var cb := skel.get_bone_global_pose(chest_bone)
-		cb.basis = (Basis(Vector3.RIGHT, -0.22 * trick) * cb.basis).orthonormalized()
-		skel.set_bone_global_pose(chest_bone, cb)
-	if head_bone >= 0 and trick > 0.01:
-		var hb := skel.get_bone_global_pose(head_bone)
-		var look := Basis(Vector3.UP, 0.6 * trick * trick_spin) * Basis(Vector3.RIGHT, 0.55 * trick * trick_pitch)
-		hb.basis = (look * hb.basis).orthonormalized()
-		skel.set_bone_global_pose(head_bone, hb)
 
 	# --- legs: feet back onto the pedals
 	foot_miss = 0.0
@@ -321,7 +327,7 @@ func _rider_body(dt: float) -> void:
 		# knees always point forward (and a touch out), so a nearly straight
 		# standing leg can't flip its knee from frame to frame
 		var hip_x := skel.get_bone_global_pose(leg_bones[i][0]).origin.x
-		var knee_dir := Vector3(signf(hip_x) * (0.12 + 0.35 * trick), 0.0, -1.0)   # knees splay a little in a tuck
+		var knee_dir := Vector3(signf(hip_x) * (0.12 + 0.35 * trick * (1.0 - maxf(trick_pitch, 0.0))), 0.0, -1.0)   # knees splay a little in a tuck
 		foot_miss = maxf(foot_miss, _two_bone(leg_bones[i], f.origin, f.basis, knee_dir, 1.0))
 	# --- arms: hands onto the grips, which turn with the steering
 	hand_miss = 0.0

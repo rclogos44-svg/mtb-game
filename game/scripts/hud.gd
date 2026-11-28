@@ -8,6 +8,7 @@ var bike: Bike
 var label: Label
 var bars := {}
 var help: Label
+var speedo: Control
 
 
 func _ready() -> void:
@@ -54,6 +55,11 @@ func _ready() -> void:
 	help.visible = not compact
 	if compact:
 		panel.position = Vector2(40, 30)
+	speedo = Control.new()
+	speedo.set_script(load("res://scripts/speedometer.gd"))
+	speedo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	speedo.size = Vector2(190, 190) if compact else Vector2(230, 230)
+	add_child(speedo)
 	bike = get_node_or_null(bike_path)
 
 
@@ -61,7 +67,12 @@ func _process(_dt: float) -> void:
 	if bike == null or bike.shock == null:
 		bike = get_node_or_null(bike_path)
 		return
-	help.position.y = get_viewport().get_visible_rect().size.y - 56
+	var vs := get_viewport().get_visible_rect().size
+	help.position.y = vs.y - 56
+	# desktop: bottom right; phone: left, under the panel and above the d-pad
+	# (the thumbs own the bottom corners, the buttons the top right)
+	speedo.position = Vector2(46.0, 196.0) if compact else vs - speedo.size - Vector2(24, 24)
+	speedo.set_speed(bike.speed_kmh(), "gear %d" % (bike.gear + 1), _dt)
 	var rt := bike.rear.travel * 1000.0
 	var ft := bike.front.travel * 1000.0
 	if compact:

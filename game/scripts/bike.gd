@@ -29,13 +29,13 @@ const MAX_FLIP_RATE := 6.0        # rad/s: a flip takes about a second
 ## 12-speed 10-51 cassette, smallest gear last
 const CASSETTE := [51, 45, 39, 33, 28, 24, 21, 18, 16, 14, 12, 10]  # N per m/s: the rider's legs and arms on a landing
 const TYRE_RELAX_LEN := 0.25      # m
-const MAX_LEAN := 0.56            # rad (32 deg), only reached in a held, sharp turn
-const STEER_LAT_G_TAP := 0.10     # g of cornering when the key has just been pressed
-const STEER_LAT_G_HELD := 0.64    # g once it has been held for STEER_BUILD_TIME
-const STEER_BUILD_TIME := 1.0     # s
-const LEAN_RATE := 1.3            # rad/s the rider can roll the bike
-const MAX_LEAN_TORQUE := 1300.0   # N m
-const MAX_ROLL_RATE_GROUND := 1.8 # rad/s
+const MAX_LEAN := 0.62            # rad (36 deg), only reached in a held, sharp turn
+const STEER_LAT_G_TAP := 0.22     # g of cornering when the key has just been pressed
+const STEER_LAT_G_HELD := 0.72    # g once it has been held for STEER_BUILD_TIME
+const STEER_BUILD_TIME := 0.6     # s
+const LEAN_RATE := 1.7            # rad/s the rider can roll the bike
+const MAX_LEAN_TORQUE := 1600.0   # N m
+const MAX_ROLL_RATE_GROUND := 2.1 # rad/s
 const GRAV := 9.81
 ## Ray angles round the tyre from straight down (+ = ahead of the axle).
 const WHEEL_RAY_ANGLES := [-0.9, -0.6, -0.35, -0.15, 0.0, 0.15, 0.35, 0.6, 0.9]
@@ -252,7 +252,7 @@ func _physics_process(dt: float) -> void:
 	var ramp := steer_hold * steer_hold * (3.0 - 2.0 * steer_hold)          # smoothstep
 	var lat_g := lerpf(STEER_LAT_G_TAP, STEER_LAT_G_HELD, ramp) * absf(in_steer)
 	var max_steer := minf(0.70, atan(lat_g * GRAV * wb / maxf(speed * speed, 0.01)))
-	steer_angle = move_toward(steer_angle, dir * max_steer, 2.5 * dt)
+	steer_angle = move_toward(steer_angle, dir * max_steer, 3.5 * dt)
 	# bars: a rider turns the bars well past the path angle (tyre slip, and at
 	# low speed the bars swing a lot); never more than ~40 deg
 	var bar_want := steer_angle * 1.8 + dir * absf(in_steer) * 0.10 * (0.4 + 0.6 * ramp)

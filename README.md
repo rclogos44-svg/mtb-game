@@ -28,6 +28,8 @@ On a phone or tablet, on-screen buttons appear instead (turn the phone
 sideways): a d-pad for the left thumb (steer/spin, wheelie/flips), PEDAL / BRAKE / HOP with the right, and
 CAM / TRAIL / BASE / RESET along the top. Several fingers work at once.
 
+A speedometer dial sits bottom right (on phones, under the info panel).
+
 The panel in the corner shows live fork and shock travel, spring rate, air
 pressure and leverage ratio.
 

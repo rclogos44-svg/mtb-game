@@ -52,7 +52,8 @@ func pilot(_b, _t: float) -> Dictionary:
 			var dir := 1.0 if int(_t / flip_period) % 2 == 0 else -1.0
 			return {"pedal": flip_pedal, "brake": flip_brake, "steer": dir}
 		"line":
-			return {"pedal": 1.0 if _b.linear_velocity.length() < line_speed else 0.0, "steer": 0.25 * sin(_t * 2.3)}
+			# a gentle weave (steering is about twice as quick as when this was written)
+			return {"pedal": 1.0 if _b.linear_velocity.length() < line_speed else 0.0, "steer": 0.12 * sin(_t * 2.3)}
 		"hopload":
 			return {"hop": true}
 		"pedalhop":
@@ -275,7 +276,7 @@ func _run(main) -> void:
 			worst = maxf(worst, absf(roll_deg()))
 			if bike.global_transform.basis.y.dot(Vector3.UP) < 0.4:
 				fell = true
-		check("steer switch %s: stays up" % combo[3], not fell and worst < 39.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
+		check("steer switch %s: stays up" % combo[3], not fell and worst < 45.0, "max lean %.0f deg, %.0f km/h at end" % [worst, bike.linear_velocity.length() * 3.6])
 
 	# turning tightens the longer the key is held; quick taps stay gentle
 	phase = "holdturn"
@@ -478,6 +479,8 @@ func _run(main) -> void:
 		var cur_j := -1
 		var was_air_b := false
 		var sweet := true
+		var hand_b := 0.0
+		var vis_b = bike.get_node("Visual")
 		var prev_bb := bike.global_transform.basis
 		for i in int(40.0 * Engine.physics_ticks_per_second):
 			await physics_frame
@@ -501,6 +504,7 @@ func _run(main) -> void:
 				for j in big.jumps:
 					if j["id"] == big_trick_jump and ub > float(j["lip_u"]) - 1.0 and ub < float(j["land_end"]) + 6.0:
 						trick_rot += (prev_bb.inverse() * bike.global_transform.basis).get_euler()
+						hand_b = maxf(hand_b, vis_b.hand_miss)
 			prev_bb = bike.global_transform.basis
 			if bike.upside_down_time > 0.2 and (bike.rear.contact or bike.front.contact):
 				fell_b = true
@@ -511,8 +515,8 @@ func _run(main) -> void:
 		if run[3] and run[2] == "":
 			ok = ok and sweet
 		if run[2] != "":
-			ok = ok and absf(rad_to_deg(trick_rot.x)) > 290.0
-		check("big line, %s: top to bottom" % run[0], ok, "lip speeds %s%s" % [", ".join(seen.values()), (", flip %.0f deg" % absf(rad_to_deg(trick_rot.x))) if run[2] != "" else ""])
+			ok = ok and absf(rad_to_deg(trick_rot.x)) > 290.0 and hand_b < 0.01
+		check("big line, %s: top to bottom" % run[0], ok, "lip speeds %s%s" % [", ".join(seen.values()), (", flip %.0f deg, hands up to %.1f cm off the grips" % [absf(rad_to_deg(trick_rot.x)), hand_b * 100]) if run[2] != "" else ""])
 	big_trick_jump = ""
 
 	# landings stick: drop onto flat ground and check the bike doesn't spring
