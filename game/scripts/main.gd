@@ -147,13 +147,13 @@ func _ground() -> void:
 	body.name = "Ground"
 	var col := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(1000, 2, 1000)
+	box.size = Vector3(1400, 2, 1400)
 	col.shape = box
 	col.position = Vector3(0, -1, 0)
 	body.add_child(col)
 	var mi := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(1000, 1000)
+	pm.size = Vector2(1400, 1400)
 	mi.mesh = pm
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scripts/ground.gdshader")

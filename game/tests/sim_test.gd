@@ -13,6 +13,7 @@ var flip_brake := 0.0
 var trail_effort := 0.3
 var trick := {}
 var big_effort := 0.0
+var big_pop := false
 var big_trick_jump := ""
 var big: BigLine
 var park_x := 0.0
@@ -64,6 +65,12 @@ func pilot(_b, _t: float) -> Dictionary:
 			var offb: float = _b.global_position.x - BigLine.ORIGIN.x
 			var yawb: float = (-_b.global_transform.basis.z).x
 			var cb := {"pedal": 1.0 if _t < 1.0 else big_effort, "steer": clampf(offb * 0.6 + yawb * 3.0, -1.0, 1.0)}
+			if big_pop:
+				# charge the pop on the takeoff, release it at the lip
+				var up: float = BigLine.ORIGIN.y - _b.global_position.z
+				for j in big.jumps:
+					if up > float(j["lip_u"]) - 7.0 and up < float(j["lip_u"]) - 0.35:
+						cb["hop"] = true
 			if big_trick_jump != "" and not (_b.rear.contact or _b.front.contact) and maxf(absf(trick_rot.x), absf(trick_rot.y)) < deg_to_rad(290.0):
 				var ub: float = BigLine.ORIGIN.y - _b.global_position.z
 				for j in big.jumps:
@@ -457,9 +464,10 @@ func _run(main) -> void:
 	# the big line: coast it (the hill gives the speed), pedal it, flip it
 	big = bike.get_parent().get_node("BigLine")
 	phase = "bigline"
-	for run in [["coasting", 0.0, ""], ["full pedal", 1.0, ""], ["coasting, backflip off J3", 0.0, "J3"]]:
+	for run in [["pedal + pop", 1.0, "", true], ["pedal, no pop", 1.0, "", false], ["pedal + pop, backflip off J3", 1.0, "J3", true]]:
 		big_effort = run[1]
 		big_trick_jump = run[2]
+		big_pop = run[3]
 		trick_rot = Vector3.ZERO
 		bike.reset_bike(big.start_xform())
 		await wait(0.05)
@@ -467,6 +475,9 @@ func _run(main) -> void:
 		var seen := {}
 		var in_win := true
 		var fell_b := false
+		var cur_j := -1
+		var was_air_b := false
+		var sweet := true
 		var prev_bb := bike.global_transform.basis
 		for i in int(40.0 * Engine.physics_ticks_per_second):
 			await physics_frame
@@ -475,8 +486,17 @@ func _run(main) -> void:
 				if not seen.has(j["id"]) and absf(ub - float(j["lip_u"])) < 0.4:
 					var kmh := bike.speed_kmh()
 					seen[j["id"]] = "%s %.0f" % [j["id"], kmh]
-					if kmh < j["win"].x - 0.5 or kmh > j["win"].y + 0.5:
-						in_win = false
+					cur_j = big.jumps.find(j)
+			var air_b := not (bike.rear.contact or bike.front.contact)
+			if cur_j >= 0 and was_air_b and not air_b:
+				# first touchdown after a lip: on the landing, past the knuckle?
+				var jj: Dictionary = big.jumps[cur_j]
+				var d := ub - float(jj["kn_u"])
+				seen[jj["id"]] += " lands %.1f m in" % d
+				if d < 0.0 or ub > float(jj["land_end"]):
+					sweet = false
+				cur_j = -1
+			was_air_b = air_b
 			if big_trick_jump != "" and not (bike.rear.contact or bike.front.contact):
 				for j in big.jumps:
 					if j["id"] == big_trick_jump and ub > float(j["lip_u"]) - 1.0 and ub < float(j["land_end"]) + 6.0:
@@ -488,8 +508,8 @@ func _run(main) -> void:
 				break
 		var done_b := BigLine.ORIGIN.y - bike.global_position.z > big.line_end - 7.0
 		var ok := done_b and not fell_b and seen.size() == big.jumps.size()
-		if run[1] == 0.0 and run[2] == "":
-			ok = ok and in_win
+		if run[3] and run[2] == "":
+			ok = ok and sweet
 		if run[2] != "":
 			ok = ok and absf(rad_to_deg(trick_rot.x)) > 290.0
 		check("big line, %s: top to bottom" % run[0], ok, "lip speeds %s%s" % [", ".join(seen.values()), (", flip %.0f deg" % absf(rad_to_deg(trick_rot.x))) if run[2] != "" else ""])

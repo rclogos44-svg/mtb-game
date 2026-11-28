@@ -93,7 +93,7 @@ td.k{font:700 17px "Barlow Condensed",sans-serif}
         <tbody></tbody>
       </table>
     </div>
-    <p class="small">Speed window: lip speeds that touch down on the landing between the knuckle and its foot, within 20&deg; of the slope. Worked out by flying the rider over this exact profile at every km/h, not from a formula.</p>
+    <p class="small">Speed window: lip speeds that, with a pop, touch down on the landing between the knuckle and the start of its curve into the trail, within 20&deg; of the slope. Worked out by flying the rider (with air drag) over this exact profile at every km/h, not from a formula.</p>
   </section>
 
   <section class="sheet">
@@ -138,13 +138,19 @@ function build(D) {
     P.push([ub, ground(ub)]);
     j.knU = j.lipU + j.gap; j.knY = ground(j.knU) + j.hk;
     let uf = j.knU; while (j.knY - (j.knU - uf) * back > ground(uf)) uf -= 0.05;
-    P.push([uf, ground(uf)], [j.knU, j.knY], [j.knU + 0.6, j.knY]);
-    const tp = Math.tan(rad(j.land_ang));
-    let ul = j.knU + 0.6; while (j.knY - (ul - j.knU - 0.6) * tp > ground(ul)) ul += 0.05;
-    for (let i = 1; i <= 8; i++) { const uu = j.knU + 0.6 + (ul - j.knU - 0.6) * i / 8; P.push([uu, j.knY - (uu - j.knU - 0.6) * tp]); }
-    // fillet into the hill
-    for (let i = 1; i <= 6; i++) { const uu = ul + i * 0.6; P.push([uu, ground(uu) + Math.max(0, 0.5 * (1 - i / 6)) ** 2]); }
-    j.landEnd = ul; u = ul + 3.6;
+    P.push([uf, ground(uf)], [j.knU, j.knY]);
+    // landing as built in the game: flat knuckle top, a roll-over into the
+    // landing angle, a straight steep part, then a curve whose slope eases
+    // evenly to the trail's (no kink at the bottom)
+    const tp = Math.tan(rad(j.land_ang)), KF = 0.4, KR = 1.4;
+    P.push([j.knU + KF, j.knY]);
+    for (let i = 1; i <= 7; i++) { const x = KR * i / 7; P.push([j.knU + KF + x, j.knY - tp * x * x / (2 * KR)]); }
+    const u1 = j.knU + KF + KR, y1 = j.knY - tp * KR / 2, h1 = y1 - ground(u1), ht = 0.55 * h1;
+    const ls = Math.max((h1 - ht) / (tp - S), 0);
+    for (let i = 1; i <= 4; i++) { const x = ls * i / 4; P.push([u1 + x, y1 - tp * x]); }
+    const ua = u1 + ls, ya = y1 - tp * ls, l2 = 2 * ht / (tp - S);
+    for (let i = 1; i <= 16; i++) { const x = l2 * i / 16; P.push([ua + x, ya - tp * x + (tp - S) * x * x / (2 * l2)]); }
+    j.landEnd = ua + l2 / 2; j.curveEnd = ua + l2; u = ua + l2 + 2;
     J.push(j);
   }
   const end = u + D.runout;
@@ -160,24 +166,29 @@ function build(D) {
   return {P, J, ground, at, end};
 }
 
-// fly a lip speed over the profile; where and how does it touch down?
-function fly(L, j, v) {
-  const th = rad(j.ang), vx = v * Math.cos(th), vy = v * Math.sin(th), pts = [[j.lipU, j.lipY]];
-  for (let t = 0.004; t < 6; t += 0.004) {
-    const x = j.lipU + vx * t, y = j.lipY + vy * t - G * t * t / 2;
+// fly a lip speed (plus a pop off the lip) over the profile, with air drag,
+// exactly as the game does; where and how does it touch down?
+const AIR_CDA = 0.5;
+function fly(L, j, v, pop) {
+  const th = rad(j.ang), k = 0.5 * 1.2 * AIR_CDA / 90, dt = 0.004;
+  let vx = v * Math.cos(th) - pop * Math.sin(th), vy = v * Math.sin(th) + pop * Math.cos(th), x = j.lipU, y = j.lipY;
+  const pts = [[x, y]];
+  for (let t = dt; t < 6; t += dt) {
+    const sp = Math.hypot(vx, vy);
+    vx -= k * sp * vx * dt; vy -= (G + k * sp * vy) * dt; x += vx * dt; y += vy * dt;
     pts.push([x, y]);
     if (t > 0.08 && y <= L.at(x)) {
       const slope = deg(Math.atan2(L.at(x - 0.1) - L.at(x + 0.1), 0.2));
-      const traj = deg(Math.atan2(G * t - vy, vx));
+      const traj = deg(Math.atan2(-vy, vx));
       const where = x < j.knU - 0.05 ? "case" : x <= j.landEnd ? "land" : "over";
       return {x, y, t, pts, where, diff: traj - slope};
     }
   }
   return null;
 }
-function windowOf(L, j) {
+function windowOf(L, j, pop) {
   const good = [];
-  for (let k = 15; k <= 90; k++) { const r = fly(L, j, k / 3.6); if (r && r.where === "land" && Math.abs(r.diff) < 20) good.push(k); }
+  for (let k = 15; k <= 90; k++) { const r = fly(L, j, k / 3.6, pop); if (r && r.where === "land" && Math.abs(r.diff) < 20) good.push(k); }
   if (!good.length) return null;
   return {lo: good[0], hi: good[good.length - 1], mid: (good[0] + good[good.length - 1]) / 2};
 }
@@ -185,13 +196,13 @@ function windowOf(L, j) {
 function render(D) {
   const L = build(D);
   for (const j of L.J) {
-    j.win = windowOf(L, j);
-    j.mid = j.win ? fly(L, j, j.win.mid / 3.6) : null;
+    j.win = windowOf(L, j, D.pop || 0);
+    j.mid = j.win ? fly(L, j, j.win.mid / 3.6, D.pop || 0) : null;
     j.peak = j.mid ? Math.max(...j.mid.pts.map(p => p[1] - L.at(p[0]))) : 0;
   }
   const drop = D.deck.y;
   const gaps = L.J.map(j => j.gap);
-  document.getElementById("lede").textContent = `Five big jumps down a ${Math.round(D.slope * 100)}% hillside, from a ${D.deck.y} m start tower. The slope gives you the speed, so nobody needs to pedal. Gaps grow from ${Math.min(...gaps)} m to ${Math.max(...gaps)} m, and each landing is built tall and long so there's a usable speed window. A big berm and a run-out finish the line. Built in the game (press 3); these are the built dimensions, with run-ins tuned by riding it.`;
+  document.getElementById("lede").textContent = `Five huge jumps down a ${Math.round(D.slope * 100)}% hillside, from a ${D.deck.y} m start tower. Built for pedalling in and popping each lip: gaps grow from ${Math.min(...gaps)} m to ${Math.max(...gaps)} m, sized by riding the line in the game until every pop lands in the sweet spot. Landings roll over the knuckle and curve into the trail. Built in the game (press 3); these are the built dimensions.`;
   const top = Math.max(...L.J.filter(j => j.win).map(j => j.win.hi));
   document.getElementById("figs").innerHTML = [
     [L.J.length + " jumps", "on one line"],
@@ -256,16 +267,16 @@ function render(D) {
   // ---- jump cards
   const cards = document.getElementById("cards");
   cards.innerHTML = L.J.map(j => `<div class="card"><h3>${j.id} &middot; ${j.name}</h3><div class="d" data-j="${j.id}"></div>
-    <div class="win">${j.win ? j.win.lo + "–" + j.win.hi + " km/h" : "no window"}<span>lip speed that lands it</span></div>
+    <div class="win">${j.win ? j.win.lo + "–" + j.win.hi + " km/h" : "no window"}<span>pedal in and pop</span></div>
     <dl><dt>Lip</dt><dd>${j.h} m tall, ${j.ang}°</dd><dt>Gap</dt><dd>${j.gap} m, lip to knuckle</dd>
     <dt>Landing</dt><dd>knuckle ${j.hk} m above the hill, ${j.land_ang}°, ${(j.landEnd - j.knU).toFixed(1)} m long</dd>
     <dt>Air</dt><dd>${j.mid ? j.mid.t.toFixed(2) + " s, up to " + j.peak.toFixed(1) + " m above the ground" : "–"}</dd></dl></div>`).join("");
   const drawCards = () => {
     for (const el of cards.querySelectorAll(".d")) {
       const j = L.J.find(q => q.id === el.dataset.j), W = el.clientWidth, H = el.clientHeight;
-      const ua = j.u0 - 2, ub = j.landEnd + 4;
+      const ua = j.u0 - 2, ub = j.curveEnd + 3;
       const ys = L.P.filter(p => p[0] >= ua && p[0] <= ub).map(p => p[1]);
-      const fl = [j.win && fly(L, j, j.win.lo / 3.6), j.win && fly(L, j, j.win.hi / 3.6)].filter(Boolean);
+      const fl = [j.win && fly(L, j, j.win.lo / 3.6, D.pop || 0), j.win && fly(L, j, j.win.hi / 3.6, D.pop || 0)].filter(Boolean);
       const yTop = Math.max(...ys, ...fl.flatMap(f => f.pts.map(p => p[1]))), yBot = L.ground(ub) - 0.5;
       const sx = Math.min((W - 20) / (ub - ua), (H - 34) / (yTop - yBot));
       const X = u => 10 + (u - ua) * sx, Y = v => H - 22 - (v - yBot) * sx;
@@ -294,10 +305,11 @@ function render(D) {
   for (let u = L.J[0].u0; u < L.J[L.J.length - 1].landEnd; u += 0.1) fill += Math.max(0, L.at(u) - L.ground(u)) * 0.1;
   const jumpsDirt = fill * 3.0 * 1.6;
   document.getElementById("notes").innerHTML = [
-    ["Let the hill do it", `The line falls ${Math.round(D.slope * 100)}% the whole way. Roll in from the ${D.deck.y} m tower and coast: you arrive at every lip inside its window. Coasting, the rider tucks low, which is what lets the hill carry him past 50 km/h.`],
-    ["Speed signs", `A sign before each takeoff shows its window, from ${L.J[0].win ? L.J[0].win.lo + "–" + L.J[0].win.hi : "?"} km/h at ${L.J[0].id} up to ${L.J[L.J.length - 1].win ? L.J[L.J.length - 1].win.lo + "–" + L.J[L.J.length - 1].win.hi : "?"} km/h at ${L.J[L.J.length - 1].id}: the jumps grow as the hill makes you faster.`],
+    ["Pedal in, pop the lip", `Hold the pedals the whole way down and pop each lip (hold the hop through the takeoff, let go at the top). That lands every jump 4\u20136 m down its landing. Pedalling without a pop lands nearer the knuckle but still clean. Just coasting is too slow now: you'll case the first gap.`],
+    ["Speed signs", `A sign before each takeoff shows the lip speeds that land it with a pop, from ${L.J[0].win ? L.J[0].win.lo + "–" + L.J[0].win.hi : "?"} km/h at ${L.J[0].id} up to ${L.J[L.J.length - 1].win ? L.J[L.J.length - 1].win.lo + "–" + L.J[L.J.length - 1].win.hi : "?"} km/h at ${L.J[L.J.length - 1].id}: the jumps grow as the hill makes you faster.`],
+    ["Curved landings", "Each landing has a flat knuckle that rolls over into the landing angle, a straight steep section, then a curve whose slope eases evenly into the trail, so there's no jolt where the landing meets the run-out."],
     ["Landings built for the window", `Each landing stands ${Math.min(...L.J.map(j => j.hk))}–${Math.max(...L.J.map(j => j.hk))} m above the hill at its knuckle and slopes at ${Math.min(...L.J.map(j => j.land_ang))}–${Math.max(...L.J.map(j => j.land_ang))}°. The steeper last two match their steeper lips. Tall and long is what gives a usable window.`],
-    ["Run-ins tuned by riding", `The run-in before each jump was set by riding the line in the game and adjusting until coasting arrives in the upper part of every window (${L.J.map(j => j.id + " " + j.run + " m").join(", ")}). Landing deep keeps your speed; landing on the knuckle scrubs it, and the next jump comes up short.`],
+    ["Gaps sized by riding", `Each gap was set by riding the line in the game, pedalling and popping, and moving the landing until touchdown came about 40% of the way down it (${L.J.map(j => j.id + " " + j.gap + " m").join(", ")}). The flight model here includes air drag, which takes several metres off a 20 m jump at 55 km/h.`],
     ["Casing and overshooting", `Too slow and you hit the face below the knuckle, which hurts. Too fast and you land past the foot, on the ${Math.round(Math.atan(D.slope) * 180 / Math.PI)}° hill: hard, but you ride away. Pedalling the whole way in testing ran a few km/h over most windows and still rode clean.`],
     ["Tricks", "Each jump gives well over a second in the air, enough for a backflip, a frontflip or a 360. Let go early and the rider spots the landing."],
     ["Dirt", `About ${Math.round(jumpsDirt)} m³ for the jumps on top of the shaped hillside, ${D.hill_half_width * 2} m wide at the crest with 45° sides. Lips get a clay cap and are packed hard; landings are kept soft.`],

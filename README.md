@@ -123,11 +123,17 @@ flat-out overshoots to the bottom, like a real tabletop.
 
 ## The big line
 
-`game/scripts/big_line.gd` builds a 52 m start tower on a 15% hillside with
-five big jumps (7 m to 16 m gaps, 4.6 to 6.8 m of air), a berm and a run-out,
-behind the rollers. Press 3 (or P) to drop in. The design lives in
-`game/assets/big_line.json`, which the blueprint (`design/big_line_blueprint.html`)
-reads too; both build the profile the same way and simulate each jump's speed
-window. The run-ins were tuned by riding the line in the game so that coasting
-arrives in the upper part of every window. Coasting fast, the rider tucks
-(less drag), which is what lets the hill carry him past 50 km/h.
+`game/scripts/big_line.gd` builds a 68 m start tower on a 15% hillside with
+five huge jumps (12 m to 23 m gaps, up to ~7 m of air), a berm and a
+run-out, behind the rollers. Press 3 (or P) to drop in.
+
+Ride it pedalling and pop every lip (hold Space up the takeoff, let go at the
+top): each gap was sized by riding the line in the game that way until every
+jump touched down about 40% of the way down its landing. Pedalling without a
+pop also rides clean (landing nearer the knuckle); coasting is too slow.
+
+Landings are shaped like built ones: a flat knuckle that rolls over into the
+landing angle, a straight steep part, then a curve whose slope eases evenly
+into the trail. The design lives in `game/assets/big_line.json`, which the
+blueprint (`design/big_line_blueprint.html`) reads too; both build the same
+profile and fly the rider over it with air drag to get each speed window.

@@ -10,10 +10,11 @@ extends Node3D
 
 const DESIGN := "res://assets/big_line.json"
 const ORIGIN := Vector2(0.0, -120.0)
-const FINE := 0.3                   # cell size along the riding line and berm
+const FINE := 0.375                 # cell size along the riding line and berm
 const COARSE := 1.5                 # cell size on the hill's big sides
 const TRACK_HALF := 2.0
 const GRAV := 9.81
+const AIR_CDA := 0.5            # rider + bike in the air (between tucked and sitting up)
 
 var D: Dictionary
 var S := 0.12
@@ -42,6 +43,7 @@ func _ready() -> void:
 	_build_profile()
 	for j in jumps:
 		j["win"] = _window(j)
+		j["win_pop"] = _window(j, float(D.get("pop", 0.0)))
 	_terrain()
 	_signs()
 
@@ -105,20 +107,7 @@ func _build_profile() -> void:
 			uf -= 0.05
 		P.append(Vector2(uf, ground(uf)))
 		P.append(Vector2(kn_u, kn_y))
-		P.append(Vector2(kn_u + 0.6, kn_y))
-		var tp := tan(deg_to_rad(j["land_ang"]))
-		var ul := kn_u + 0.6
-		while kn_y - (ul - kn_u - 0.6) * tp > ground(ul):
-			ul += 0.05
-		for i in range(1, 9):
-			var uu := kn_u + 0.6 + (ul - kn_u - 0.6) * i / 8.0
-			P.append(Vector2(uu, kn_y - (uu - kn_u - 0.6) * tp))
-		for i in range(1, 7):
-			var uu := ul + i * 0.6
-			var f := maxf(0.0, 0.5 * (1.0 - i / 6.0))
-			P.append(Vector2(uu, ground(uu) + f * f))
-		j["land_end"] = ul
-		u = ul + 3.6
+		u = _landing(P, kn_u, kn_y, tan(deg_to_rad(j["land_ang"])), j)
 		jumps.append(j)
 	line_end = u + float(D["runout"])
 	var x := u + 4.0
@@ -131,6 +120,37 @@ func _build_profile() -> void:
 		ys.append(p.y)
 	var br: Dictionary = D["berm"]
 	berm = {"c": Vector2(line_end, -float(br["r"])), "r": float(br["r"]), "wall": float(br["wall"])}
+
+
+## A landing shaped the way builders shape them: a short flat knuckle that
+## rolls over into the landing angle, a straight steep section, then a curve
+## whose slope eases evenly from the landing angle down to the trail, so there
+## is no kink where the landing meets the run-out. Returns where the trail
+## carries on.
+func _landing(P: PackedVector2Array, kn_u: float, kn_y: float, tp: float, j: Dictionary) -> float:
+	var KF := 0.4                         # flat top of the knuckle
+	var KR := 1.4                         # knuckle roll-over length
+	P.append(Vector2(kn_u + KF, kn_y))
+	for i in range(1, 8):                 # knuckle: slope goes 0 -> landing angle
+		var x := KR * i / 7.0
+		P.append(Vector2(kn_u + KF + x, kn_y - tp * x * x / (2.0 * KR)))
+	var u1 := kn_u + KF + KR
+	var y1 := kn_y - tp * KR * 0.5
+	var h1 := y1 - ground(u1)
+	var ht := 0.55 * h1                   # height left when the curve starts
+	var ls := maxf((h1 - ht) / (tp - S), 0.0)
+	for i in range(1, 5):                 # straight, steep part
+		var x := ls * i / 4.0
+		P.append(Vector2(u1 + x, y1 - tp * x))
+	var ua := u1 + ls
+	var ya := y1 - tp * ls
+	var l2 := 2.0 * ht / (tp - S)         # transition: slope eases linearly to the hill's
+	for i in range(1, 17):
+		var x := l2 * i / 16.0
+		P.append(Vector2(ua + x, ya - tp * x + (tp - S) * x * x / (2.0 * l2)))
+	j["land_end"] = ua + l2 * 0.5         # past here it's the run-out, not the landing
+	j["curve_end"] = ua + l2
+	return ua + l2 + 2.0
 
 
 func profile(u: float) -> float:
@@ -152,12 +172,13 @@ func profile(u: float) -> float:
 	return ys[lo] + (ys[hi] - ys[lo]) * (u - us[lo]) / du
 
 
-## Lip speeds (km/h) that touch down on the landing, as on the blueprint.
-func _window(j: Dictionary) -> Vector2i:
+## Lip speeds (km/h) that touch down on the landing, as on the blueprint,
+## with a pop off the lip of `pop` m/s (0 = just rolling off it).
+func _window(j: Dictionary, pop := 0.0) -> Vector2i:
 	var lo := -1
 	var hi := -1
 	for k in range(15, 91):
-		var r := _fly(j, k / 3.6)
+		var r := _fly(j, k / 3.6, pop)
 		if r == "land":
 			if lo < 0:
 				lo = k
@@ -165,24 +186,44 @@ func _window(j: Dictionary) -> Vector2i:
 	return Vector2i(lo, hi)
 
 
-func _fly(j: Dictionary, v: float) -> String:
+## Where a flight off this jump's lip touches down (u), for calibration.
+func landing_u(j: Dictionary, v: float, pop: float) -> float:
+	var r := _flight(j, v, pop)
+	return r[0]
+
+
+## Flies a lip speed (and pop) over the profile with air drag; returns
+## [touchdown u, time, trajectory angle deg, ground slope deg].
+func _flight(j: Dictionary, v: float, pop: float) -> Array:
 	var th := deg_to_rad(j["ang"])
-	var vx := v * cos(th)
-	var vy := v * sin(th)
-	var t := 0.004
+	var vx := v * cos(th) - pop * sin(th)
+	var vy := v * sin(th) + pop * cos(th)
+	var x: float = j["lip_u"]
+	var y: float = j["lip_y"]
+	var t := 0.0
+	var dt := 0.004
+	var k := 0.5 * 1.2 * AIR_CDA / 90.0
 	while t < 6.0:
-		var x: float = float(j["lip_u"]) + vx * t
-		var y: float = float(j["lip_y"]) + vy * t - GRAV * t * t / 2.0
+		var sp := sqrt(vx * vx + vy * vy)
+		vx -= k * sp * vx * dt
+		vy -= (GRAV + k * sp * vy) * dt
+		x += vx * dt
+		y += vy * dt
+		t += dt
 		if t > 0.08 and y <= profile(x):
 			var slope := rad_to_deg(atan2(profile(x - 0.1) - profile(x + 0.1), 0.2))
-			var traj := rad_to_deg(atan2(GRAV * t - vy, vx))
-			if x < float(j["kn_u"]) - 0.05:
-				return "case"
-			if x <= float(j["land_end"]) and absf(traj - slope) < 20.0:
-				return "land"
-			return "over"
-		t += 0.004
-	return "none"
+			return [x, t, rad_to_deg(atan2(-vy, vx)), slope]
+	return [1e9, t, 0.0, 0.0]
+
+
+func _fly(j: Dictionary, v: float, pop := 0.0) -> String:
+	var r := _flight(j, v, pop)
+	var x: float = r[0]
+	if x < float(j["kn_u"]) - 0.05:
+		return "case"
+	if x <= float(j["land_end"]) and absf(float(r[2]) - float(r[3])) < 20.0:
+		return "land"
+	return "over"
 
 
 # ------------------------------------------------------------------ surface
@@ -313,7 +354,7 @@ func _terrain() -> void:
 	body.add_child(col)
 	body.add_child(mi)
 	add_child(body)
-	print("big line: %d triangles, windows %s" % [tris.size() / 3, jumps.map(func(j): return "%s %d-%d" % [j["id"], j["win"].x, j["win"].y])])
+	print("big line: %d triangles, windows %s, with a pop %s" % [tris.size() / 3, jumps.map(func(j): return "%s %d-%d" % [j["id"], j["win"].x, j["win"].y]), jumps.map(func(j): return "%s %d-%d" % [j["id"], j["win_pop"].x, j["win_pop"].y])])
 
 
 ## A speed sign beside each takeoff, on the rider's right.
@@ -336,14 +377,14 @@ func _signs() -> void:
 		add_child(post)
 		var board := MeshInstance3D.new()
 		var bm := BoxMesh.new()
-		bm.size = Vector3(1.3, 0.62, 0.05)
+		bm.size = Vector3(1.3, 0.8, 0.05)
 		board.mesh = bm
 		board.material_override = face
 		board.position = to_world(u, v, base + 1.75)
 		add_child(board)
 		var lab := Label3D.new()
-		var w: Vector2i = j["win"]
-		lab.text = "%s %s\n%d-%d km/h" % [j["id"], j["name"], w.x, w.y]
+		var w: Vector2i = j["win_pop"]
+		lab.text = "%s %s\npedal + pop\n%d-%d km/h" % [j["id"], j["name"], w.x, w.y]
 		lab.font_size = 44
 		lab.pixel_size = 0.0045
 		lab.modulate = Color(0.12, 0.1, 0.08)
