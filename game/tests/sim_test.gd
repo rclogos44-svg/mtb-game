@@ -423,7 +423,8 @@ func _run(main) -> void:
 			elif airborne and landed_up < -0.5:
 				landed_up = bike.global_transform.basis.y.dot(Vector3.UP)
 			prev_b = bike.global_transform.basis
-			if bike.upside_down_time > 0.5:
+			# a crash is ending up upside down on the ground (in the air it's the flip)
+			if bike.upside_down_time > 0.2 and (bike.rear.contact or bike.front.contact):
 				crashed = true
 			if bike.global_position.z < -45.0:
 				break

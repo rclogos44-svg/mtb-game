@@ -6,7 +6,7 @@ extends CanvasLayer
 ##
 ## Layout (landscape):
 ##   top right  : CAM  TRAIL  BASE  RESET
-##   left thumb : d-pad: steer / spin left-right, wheelie / flip up-down
+##   left thumb : d-pad: steer / spin left-right; down = wheelie / backflip, up = frontflip
 ##   right thumb: PEDAL (big), BRAKE, HOP
 
 const MARGIN := 46.0
@@ -18,8 +18,8 @@ func _ready() -> void:
 	layer = 5
 	_add("left", "steer_left", 96.0, "arrow_left", "", true)
 	_add("right", "steer_right", 96.0, "arrow_right", "", true)
-	_add("up", "tilt_back", 88.0, "arrow_up", "", true)
-	_add("down", "tilt_forward", 88.0, "arrow_down", "", true)
+	_add("up", "tilt_forward", 88.0, "arrow_up", "", true)
+	_add("down", "tilt_back", 88.0, "arrow_down", "", true)
 	_add("pedal", "pedal", 128.0, "circle", "PEDAL", true)
 	_add("brake", "brake", 98.0, "circle", "BRAKE", true)
 	_add("hop", "hop", 98.0, "circle", "HOP", true)
@@ -33,8 +33,8 @@ func _layout() -> void:
 	var sz := get_viewport().get_visible_rect().size
 	var w := sz.x
 	var h := sz.y
-	# left thumb: a d-pad. Left/right steer (and spin in the air), up/down
-	# lean back/forward (wheelie on the ground, flips in the air)
+	# left thumb: a d-pad. Left/right steer (and spin in the air); down leans
+	# back (wheelie, backflip), up leans forward (frontflip)
 	var c := Vector2(MARGIN + 300.0, h - MARGIN - 205.0)
 	_place("left", c + Vector2(-190.0, 0.0))
 	_place("right", c + Vector2(190.0, 0.0))

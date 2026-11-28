@@ -56,6 +56,13 @@ func _process(dt: float) -> void:
 	var t := target.global_transform
 	var fwd := -t.basis.z
 	fwd.y = 0.0
+	# in the air follow the direction of travel, not where the bike points,
+	# so a 360 spins in front of the camera instead of swinging it round
+	if target is Bike and not (target.rear.contact or target.front.contact):
+		var hv: Vector3 = target.linear_velocity
+		hv.y = 0.0
+		if hv.length() > 1.5:
+			fwd = hv
 	if fwd.length() > 0.1:
 		_heading = _heading.slerp(fwd.normalized(), 1.0 - exp(-4.0 * dt)).normalized()
 	var center := t.origin + Vector3(0, 0.85, 0)

@@ -15,7 +15,7 @@ a climb, a rock-garden descent and a tabletop jump with a long landing.
 | W | RT | Pedal (shifts through a 12-speed 10–51 cassette by itself) |
 | S | LT | Brake |
 | A D / ← → | Left stick | Steer; in the air, spin |
-| ↑ ↓ | Right stick | Lean back / forward: W + ↑ = wheelie (coasting: manual); in the air, backflip / frontflip |
+| ↓ ↑ | Right stick | ↓ leans back: W + ↓ = wheelie (coasting: manual), in the air a backflip. ↑ in the air: frontflip |
 | Space (hold, release) | A | Load the suspension, then pop a bunny hop |
 | R | Y | Reset |
 | 2 / G, 1 | | Go to the top of the trail, back to the baseplate |
@@ -112,10 +112,10 @@ flat-out overshoots to the bottom, like a real tabletop.
 
 ## Tricks
 
-* **Wheelie**: pedal and hold ↑. The rider leans back and holds the bike just
+* **Wheelie**: pedal and hold ↓. The rider leans back and holds the bike just
   short of its balance point (~30°); coasting gives a lower manual that fades.
-* **Flips**: ↑ / ↓ in the air throw a backflip / frontflip (up to 7.5 rad/s).
-* **Spins**: ← / → in the air spin the bike.
+* **Flips**: ↓ / ↑ in the air throw a backflip / frontflip (up to 6 rad/s, about a second per flip).
+* **Spins**: ← / → in the air spin the bike; the camera keeps facing the direction of travel.
 * Let go near the end: the rider spots the landing and stops the rotation
   lined up with the flight path. The tabletop on the trail has enough air for
   a backflip, frontflip or 360 at a moderate pedal.

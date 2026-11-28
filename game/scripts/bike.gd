@@ -21,9 +21,9 @@ const WHEEL_SUBSTEPS := 8
 const RIDER_LEG_DAMPING := 3200.0
 const WHEELIE_PITCH := deg_to_rad(30.0)   # pedalling wheelie, just short of the balance point (~35)
 const MANUAL_PITCH := deg_to_rad(18.0)    # coasting manual
-const FLIP_TORQUE := 420.0        # N m the rider can throw into a flip
+const FLIP_TORQUE := 330.0        # N m the rider can throw into a flip
 const SPIN_TORQUE := 230.0        # N m for spins
-const MAX_FLIP_RATE := 7.5        # rad/s
+const MAX_FLIP_RATE := 6.0        # rad/s: a flip takes about a second
 ## 12-speed 10-51 cassette, smallest gear last
 const CASSETTE := [51, 45, 39, 33, 28, 24, 21, 18, 16, 14, 12, 10]  # N per m/s: the rider's legs and arms on a landing
 const TYRE_RELAX_LEN := 0.25      # m

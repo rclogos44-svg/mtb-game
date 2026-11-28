@@ -84,7 +84,7 @@ static func make_bike(xform: Transform3D) -> Bike:
 func _bind_inputs() -> void:
 	var keys := {
 		"pedal": [KEY_W], "brake": [KEY_S],
-		"tilt_back": [KEY_UP], "tilt_forward": [KEY_DOWN],
+		"tilt_back": [KEY_DOWN], "tilt_forward": [KEY_UP],
 		"steer_left": [KEY_A, KEY_LEFT], "steer_right": [KEY_D, KEY_RIGHT],
 		"hop": [KEY_SPACE], "reset": [KEY_R], "camera": [KEY_C], "slowmo": [KEY_T],
 		"goto_trail": [KEY_2, KEY_G], "goto_base": [KEY_1],
