@@ -14,11 +14,12 @@ extends RigidBody3D
 const GEO_PATH := "res://assets/geometry.json"
 const TYRE_TUBE := 0.0275          # tyre cross-section radius (m)
 const TYRE_RATE := 120000.0       # tyre vertical stiffness (N/m), ~120 N/mm for a 2.4" tyre
-const TYRE_DAMP := 400.0
+const TYRE_DAMP := 1200.0       # tyre casing soaks up a lot; no trampoline
 const REAR_UNSPRUNG := 4.5        # kg at the axle: wheel, tyre, cassette, part of the swingarm
 const FRONT_UNSPRUNG := 3.5       # kg: wheel, tyre, fork lowers
 const WHEEL_SUBSTEPS := 8
 const RIDER_LEG_DAMPING := 3200.0
+const BOTTOM_OUT_DAMP := 9000.0   # N per m/s at full travel
 const PUMP_GAIN := 0.35           # pumping adds this share of gravity down the back of each bump
 const WHEELIE_PITCH := deg_to_rad(30.0)   # pedalling wheelie, just short of the balance point (~35)
 const MANUAL_PITCH := deg_to_rad(18.0)    # coasting manual
@@ -46,7 +47,7 @@ const WHEEL_RAY_ANGLES := [-0.9, -0.6, -0.35, -0.15, 0.0, 0.15, 0.35, 0.6, 0.9]
 @export_range(0.1, 0.4) var rear_sag := 0.24
 @export_range(0.1, 0.35) var fork_sag := 0.17
 @export_range(0.05, 1.0) var compression_damping := 0.40   ## fraction of critical (low speed)
-@export_range(0.1, 1.5) var rebound_damping := 0.60
+@export_range(0.1, 1.5) var rebound_damping := 0.95
 @export_group("Tyres and drive")
 @export var tyre_grip := 1.05
 @export var max_drive_force := 330.0
@@ -183,7 +184,7 @@ func _setup_suspension() -> void:
 	shock_damper.lsc = compression_damping * c_crit * lr * lr  # at the shaft
 	shock_damper.lsr = rebound_damping * c_crit * lr * lr
 	shock_damper.hsc = shock_damper.lsc * 0.65
-	shock_damper.hsr = shock_damper.lsr * 0.60
+	shock_damper.hsr = shock_damper.lsr * 0.85
 	shock_damper.knee = 0.10
 
 	# front: 160 mm air fork, ~32 mm air piston, force along the steering axis
@@ -196,17 +197,25 @@ func _setup_suspension() -> void:
 	fork_damper.lsc = compression_damping * cf
 	fork_damper.lsr = rebound_damping * cf
 	fork_damper.hsc = fork_damper.lsc * 0.65
-	fork_damper.hsr = fork_damper.lsr * 0.60
+	fork_damper.hsr = fork_damper.lsr * 0.85
 	fork_damper.knee = 0.25
 
 
 # ------------------------------------------------------------------ forces
 func _wheel_force(w: Wheel, is_rear: bool, s: float, s_vel: float) -> float:
 	## Force along the suspension axis at the wheel.
+	var f := 0.0
 	if is_rear:
 		var lr := linkage.leverage_at(s)
-		return (shock.force(linkage.stroke_at(s)) + shock_damper.force(s_vel / lr)) / lr
-	return fork.force(s) + fork_damper.force(s_vel)
+		f = (shock.force(linkage.stroke_at(s)) + shock_damper.force(s_vel / lr)) / lr
+	else:
+		f = fork.force(s) + fork_damper.force(s_vel)
+	# hydraulic bottom-out over the last 20% of travel: damps hard both ways,
+	# so a big hit is soaked up instead of being stored in the bumper and
+	# fired back (modern dampers have exactly this)
+	var deep := clampf((s / w.travel - 0.8) / 0.2, 0.0, 1.0)
+	f += deep * deep * BOTTOM_OUT_DAMP * s_vel
+	return f
 
 
 func _free_extension_speed(w: Wheel, is_rear: bool) -> float:
@@ -269,7 +278,7 @@ func _physics_process(dt: float) -> void:
 		absorb_time = 0.0
 	else:
 		if air_time > 0.12:
-			absorb_time = 0.35
+			absorb_time = 0.6
 		air_time = 0.0
 	if absorb_time > 0.0:
 		absorb_time -= dt
@@ -283,6 +292,10 @@ func _physics_process(dt: float) -> void:
 		var v_in := -linear_velocity.dot(gn)
 		if v_in > 0.0:
 			apply_central_force(gn * minf(v_in * RIDER_LEG_DAMPING, 1.4 * mass * GRAV))
+		else:
+			# ...and as the suspension pushes back, the legs stay soft and keep
+			# the weight on the bike instead of letting it spring off the ground
+			apply_central_force(gn * maxf(v_in * RIDER_LEG_DAMPING * 0.8, -0.9 * mass * GRAV))
 	if both and not wheelie:
 		_pump(fwd_b)
 	if grounded:
@@ -384,7 +397,11 @@ func _wheel_step(w: Wheel, axle_ext: Vector3, sus_axis: Vector3, wheel_axis: Vec
 			if pen > 0.0:
 				var pen_rate := (overlap - ov_prev) / dt - sv
 				f_t = maxf(TYRE_RATE * minf(pen, 0.04) + TYRE_DAMP * pen_rate, 0.0)
-		sv += (f_t - f_sus) / m_u * hs
+		# damping is applied implicitly (linearised), so even the hard
+		# bottom-out damping on a 4 kg wheel can't overshoot and blow up
+		var c_est := maxf((_wheel_force(w, is_rear, s, sv + 0.01) - f_sus) / 0.01, 0.0)
+		var c_tyre := TYRE_DAMP if f_t > 0.0 else 0.0
+		sv += (f_t - f_sus) / m_u * hs / (1.0 + (c_est + c_tyre) * hs / m_u)
 		s += sv * hs
 		var f_b := f_sus
 		if s >= w.travel:

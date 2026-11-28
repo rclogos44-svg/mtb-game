@@ -69,7 +69,12 @@ func _process(dt: float) -> void:
 		var nh := _heading.lerp(fwd.normalized(), 1.0 - exp(-4.0 * dt))
 		if nh.length() > 0.01:
 			_heading = nh.normalized()
+	# follow the centre of mass, not the bike's origin (under the bottom
+	# bracket): in a flip the origin swings round a 1 m circle, the centre of
+	# mass just flies a smooth arc, so the camera stays steady
 	var center := t.origin + Vector3(0, 0.85, 0)
+	if target is RigidBody3D:
+		center = t * (target as RigidBody3D).center_of_mass + Vector3(0, -0.15, 0)
 	var desired: Vector3
 	match mode:
 		Mode.CHASE:

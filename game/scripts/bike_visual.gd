@@ -188,12 +188,17 @@ var _v_prev := Vector3.ZERO
 var leg_bones := []                  # [[thigh, shin, foot], ...]
 var hips_bone := -1
 var spine_bone := -1
+var chest_bone := -1
+var head_bone := -1
+var trick := 0.0                     # 0..1, how far into a trick pose the rider is
+var trick_pitch := 0.0               # +1 backflip, -1 frontflip (smoothed)
+var trick_spin := 0.0                # +1 spinning left, -1 right (smoothed)
 var foot_miss := 0.0
 var hand_miss := 0.0                 # how far the hands ended from the grips last tick (m)
 
 const HIP_FREQ := 1.7                # Hz, rider's legs/arms as a suspension
 const HIP_DAMP := 0.65
-const HIP_MIN := Vector3(-0.05, -0.13, -0.08)
+const HIP_MIN := Vector3(-0.05, -0.24, -0.12)
 const HIP_MAX := Vector3(0.05, 0.05, 0.24)
 
 
@@ -203,6 +208,8 @@ func _rider_body(dt: float) -> void:
 	if hips_bone < 0:
 		hips_bone = skel.find_bone("hips")
 		spine_bone = skel.find_bone("spine")
+		chest_bone = skel.find_bone("chest")
+		head_bone = skel.find_bone("head")
 		for s in ["R", "L"]:
 			var ids := [skel.find_bone("thigh." + s), skel.find_bone("shin." + s), skel.find_bone("foot." + s)]
 			if not ids.has(-1):
@@ -227,8 +234,25 @@ func _rider_body(dt: float) -> void:
 	target.z += 0.12 * clampf(bike.in_tilt, -0.6, 1.0)                  # lean back for a wheelie / flip, forward for a nose-down
 	if bike.wheelie:
 		target.y -= 0.04
-	if not (bike.rear.contact or bike.front.contact):
+	var airborne := not (bike.rear.contact or bike.front.contact)
+	if airborne:
 		target.y -= 0.06                                                # ready position in the air
+	# Tricks: when throwing (or still rotating through) a flip or spin the rider
+	# tucks: hips drop toward the bike so the knees and elbows fold deep,
+	# hips go back for a backflip and over the bars for a frontflip.
+	var w_local := bike.global_transform.basis.inverse() * bike.angular_velocity
+	var want := 0.0
+	var want_pitch := 0.0
+	var want_spin := 0.0
+	if airborne:
+		want = maxf(maxf(absf(bike.in_tilt), absf(bike.in_steer) * 0.8), clampf(maxf(absf(w_local.x) / 4.0, absf(w_local.y) / 3.5), 0.0, 1.0))
+		want_pitch = clampf(bike.in_tilt + w_local.x / 5.0, -1.0, 1.0)
+		want_spin = clampf(bike.in_steer + w_local.y / 4.0, -1.0, 1.0)
+	trick = move_toward(trick, want, (5.0 if want > trick else 3.0) * dt)
+	trick_pitch = move_toward(trick_pitch, want_pitch, 4.0 * dt)
+	trick_spin = move_toward(trick_spin, want_spin, 4.0 * dt)
+	target.y -= 0.17 * trick
+	target.z += 0.08 * trick * trick_pitch
 	var w := TAU * HIP_FREQ
 	var a := -w * w * (hip_off - target) - 2.0 * HIP_DAMP * w * hip_vel - extra * 0.55
 	hip_vel += a * dt
@@ -258,8 +282,9 @@ func _rider_body(dt: float) -> void:
 		# much as needed for both hands to reach their grips (as a rider does
 		# when crouching low or reaching for a turned bar).
 		var sp0 := skel.get_bone_global_pose(spine_bone)
-		var twist := Basis(Vector3.UP, bike.bar_angle * 0.6)
-		var fold := clampf(hip_off.y * 0.8, -0.2, 0.05)
+		# shoulders lead a spin; the chest drops toward the bars in a tuck
+		var twist := Basis(Vector3.UP, bike.bar_angle * 0.6 + 0.45 * trick * trick_spin)
+		var fold := clampf(hip_off.y * 0.8, -0.2, 0.05) - 0.25 * trick * (1.0 - 0.5 * maxf(trick_pitch, 0.0))
 		for k in 10:
 			var sp := sp0
 			sp.basis = (twist * Basis(Vector3.RIGHT, fold) * sp0.basis).orthonormalized()
@@ -277,6 +302,18 @@ func _rider_body(dt: float) -> void:
 				break
 			fold -= 0.07
 
+	# --- chest rounds and the head spots: thrown back to find the landing in a
+	# backflip, tucked in a frontflip, turned into a spin
+	if chest_bone >= 0 and trick > 0.01:
+		var cb := skel.get_bone_global_pose(chest_bone)
+		cb.basis = (Basis(Vector3.RIGHT, -0.22 * trick) * cb.basis).orthonormalized()
+		skel.set_bone_global_pose(chest_bone, cb)
+	if head_bone >= 0 and trick > 0.01:
+		var hb := skel.get_bone_global_pose(head_bone)
+		var look := Basis(Vector3.UP, 0.6 * trick * trick_spin) * Basis(Vector3.RIGHT, 0.55 * trick * trick_pitch)
+		hb.basis = (look * hb.basis).orthonormalized()
+		skel.set_bone_global_pose(head_bone, hb)
+
 	# --- legs: feet back onto the pedals
 	foot_miss = 0.0
 	for i in leg_bones.size():
@@ -284,7 +321,7 @@ func _rider_body(dt: float) -> void:
 		# knees always point forward (and a touch out), so a nearly straight
 		# standing leg can't flip its knee from frame to frame
 		var hip_x := skel.get_bone_global_pose(leg_bones[i][0]).origin.x
-		var knee_dir := Vector3(signf(hip_x) * 0.12, 0.0, -1.0)
+		var knee_dir := Vector3(signf(hip_x) * (0.12 + 0.35 * trick), 0.0, -1.0)   # knees splay a little in a tuck
 		foot_miss = maxf(foot_miss, _two_bone(leg_bones[i], f.origin, f.basis, knee_dir, 1.0))
 	# --- arms: hands onto the grips, which turn with the steering
 	hand_miss = 0.0

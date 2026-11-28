@@ -495,5 +495,31 @@ func _run(main) -> void:
 		check("big line, %s: top to bottom" % run[0], ok, "lip speeds %s%s" % [", ".join(seen.values()), (", flip %.0f deg" % absf(rad_to_deg(trick_rot.x))) if run[2] != "" else ""])
 	big_trick_jump = ""
 
+	# landings stick: drop onto flat ground and check the bike doesn't spring
+	# back into the air
+	phase = "settle"
+	for drop in [[1.0, 0.0], [2.0, 0.0], [2.0, 8.0]]:
+		bike.reset_bike(Transform3D(Basis(), Vector3(-200, drop[0] + 0.05, 200)))
+		await physics_frame
+		await physics_frame
+		bike.linear_velocity = Vector3(0, 0, -drop[1])
+		var landed_d := false
+		var y_land := 0.0
+		var rise := 0.0
+		var re_air := 0.0
+		var air_run := 0.0
+		for i in int(2.0 * Engine.physics_ticks_per_second):
+			await physics_frame
+			var gr := bike.rear.contact or bike.front.contact
+			if not landed_d and gr and i > 10:
+				landed_d = true
+				y_land = bike.global_position.y
+			elif landed_d:
+				rise = maxf(rise, bike.global_position.y - y_land)
+				air_run = 0.0 if gr else air_run + 1.0 / Engine.physics_ticks_per_second
+				re_air = maxf(re_air, air_run)
+		check("landing from %.0f m at %.0f km/h sticks" % [drop[0], drop[1] * 3.6], landed_d and rise < 0.12 and re_air < 0.06,
+			"rises %.2f m after touchdown, back in the air for %.2f s" % [rise, re_air])
+
 	print("RESULT: %s (%d failed)" % ["OK" if fails == 0 else "FAILED", fails])
 	quit(1 if fails else 0)
