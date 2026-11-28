@@ -1,0 +1,74 @@
+{
+  "name": "Big line",
+  "slope": 0.15,
+  "hill_top": 48.0,
+  "hill_half_width": 7.0,
+  "deck": {
+    "y": 52.0,
+    "len": 5.0,
+    "rollin": 14.0
+  },
+  "jumps": [
+    {
+      "id": "J1",
+      "name": "Opener",
+      "kind": "double",
+      "run": 18.5,
+      "h": 1.6,
+      "ang": 25.0,
+      "gap": 7.0,
+      "hk": 3.0,
+      "land_ang": 22.0
+    },
+    {
+      "id": "J2",
+      "name": "Step-down",
+      "kind": "stepdown",
+      "run": 12.0,
+      "h": 2.0,
+      "ang": 26.0,
+      "gap": 10.0,
+      "hk": 3.2,
+      "land_ang": 24.0
+    },
+    {
+      "id": "J3",
+      "name": "Big double",
+      "kind": "double",
+      "run": 12.0,
+      "h": 2.4,
+      "ang": 28.0,
+      "gap": 12.0,
+      "hk": 3.6,
+      "land_ang": 26.0
+    },
+    {
+      "id": "J4",
+      "name": "Canyon gap",
+      "kind": "double",
+      "run": 12.0,
+      "h": 2.6,
+      "ang": 30.0,
+      "gap": 15.0,
+      "hk": 3.6,
+      "land_ang": 28.0
+    },
+    {
+      "id": "J5",
+      "name": "Finale",
+      "kind": "double",
+      "run": 4.0,
+      "h": 3.0,
+      "ang": 32.0,
+      "gap": 16.0,
+      "hk": 3.6,
+      "land_ang": 28.0
+    }
+  ],
+  "runout": 30.0,
+  "berm": {
+    "r": 10.0,
+    "wall": 2.4,
+    "bank": 55.0
+  }
+}

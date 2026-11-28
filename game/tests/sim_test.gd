@@ -12,6 +12,9 @@ var flip_pedal := 1.0
 var flip_brake := 0.0
 var trail_effort := 0.3
 var trick := {}
+var big_effort := 0.0
+var big_trick_jump := ""
+var big: BigLine
 var park_x := 0.0
 var park_dir := -1.0
 var park_effort := 1.0
@@ -57,6 +60,16 @@ func pilot(_b, _t: float) -> Dictionary:
 			var off2: float = (_b.global_position.x - park_x) * -park_dir
 			var yaw2: float = (-_b.global_transform.basis.z).x * -park_dir
 			return {"pedal": 1.0 if _t < 1.0 else park_effort, "steer": clampf(off2 * 0.6 + yaw2 * 3.0, -1.0, 1.0)}
+		"bigline":
+			var offb: float = _b.global_position.x - BigLine.ORIGIN.x
+			var yawb: float = (-_b.global_transform.basis.z).x
+			var cb := {"pedal": 1.0 if _t < 1.0 else big_effort, "steer": clampf(offb * 0.6 + yawb * 3.0, -1.0, 1.0)}
+			if big_trick_jump != "" and not (_b.rear.contact or _b.front.contact) and maxf(absf(trick_rot.x), absf(trick_rot.y)) < deg_to_rad(290.0):
+				var ub: float = BigLine.ORIGIN.y - _b.global_position.z
+				for j in big.jumps:
+					if j["id"] == big_trick_jump and ub > float(j["lip_u"]) and ub < float(j["land_end"]):
+						cb["tilt"] = 1.0
+			return cb
 		"trail":
 			var off: float = _b.global_position.x - Trail.X0
 			var yaw_err: float = (-_b.global_transform.basis.z).x
@@ -441,34 +454,46 @@ func _run(main) -> void:
 			"rotated %.0f deg, landed with up %.2f" % [turned, landed_up])
 	trick = {}
 
-	# the dirt jump park: each line start to finish
-	var park: Park = bike.get_parent().get_node("Park")
-	var flow_start := Transform3D(Basis(Vector3.UP, PI), Park.plan_to_world(Vector2(park.pro_len + 1.0, Park.Y_FLOW), 0.05))
-	var runs := [["pro line, full pedal", Park.start_xform("pro"), 0.0, -1.0, 1.0, Park.ORIGIN.y - park.pro_len + 1.0],
-		["pro line, 80% pedal", Park.start_xform("pro"), 0.0, -1.0, 0.8, Park.ORIGIN.y - park.pro_len + 1.0],
-		["beginner line", Park.start_xform("beginner"), -8.0, -1.0, 1.0, Park.ORIGIN.y - park.beg_len + 1.0],
-		["flow line", flow_start, 13.0, 1.0, 1.0, Park.ORIGIN.y - (park.pro_len - park.flow_len) - 1.0]]
-	phase = "park"
-	for r in runs:
-		park_x = r[2]
-		park_dir = r[3]
-		park_effort = r[4]
-		bike.reset_bike(r[1])
+	# the big line: coast it (the hill gives the speed), pedal it, flip it
+	big = bike.get_parent().get_node("BigLine")
+	phase = "bigline"
+	for run in [["coasting", 0.0, ""], ["full pedal", 1.0, ""], ["coasting, backflip off J3", 0.0, "J3"]]:
+		big_effort = run[1]
+		big_trick_jump = run[2]
+		trick_rot = Vector3.ZERO
+		bike.reset_bike(big.start_xform())
 		await wait(0.05)
 		bike.sim_time = 0.0
-		var fell_p := false
-		var done_p := false
-		var tilt_p := 0.0
-		for i in int(20.0 * Engine.physics_ticks_per_second):
+		var seen := {}
+		var in_win := true
+		var fell_b := false
+		var prev_bb := bike.global_transform.basis
+		for i in int(40.0 * Engine.physics_ticks_per_second):
 			await physics_frame
-			tilt_p = maxf(tilt_p, absf(roll_deg()))
-			if bike.global_transform.basis.y.dot(Vector3.UP) < 0.4:
-				fell_p = true
-			var z := bike.global_position.z
-			if (park_dir < 0.0 and z < r[5]) or (park_dir > 0.0 and z > r[5]):
-				done_p = true
+			var ub := BigLine.ORIGIN.y - bike.global_position.z
+			for j in big.jumps:
+				if not seen.has(j["id"]) and absf(ub - float(j["lip_u"])) < 0.4:
+					var kmh := bike.speed_kmh()
+					seen[j["id"]] = "%s %.0f" % [j["id"], kmh]
+					if kmh < j["win"].x - 0.5 or kmh > j["win"].y + 0.5:
+						in_win = false
+			if big_trick_jump != "" and not (bike.rear.contact or bike.front.contact):
+				for j in big.jumps:
+					if j["id"] == big_trick_jump and ub > float(j["lip_u"]) - 1.0 and ub < float(j["land_end"]) + 6.0:
+						trick_rot += (prev_bb.inverse() * bike.global_transform.basis).get_euler()
+			prev_bb = bike.global_transform.basis
+			if bike.upside_down_time > 0.2 and (bike.rear.contact or bike.front.contact):
+				fell_b = true
+			if ub > big.line_end - 6.0:
 				break
-		check("park: %s, start to finish" % r[0], done_p and not fell_p, "max lean %.0f deg, %.0f km/h at the end" % [tilt_p, bike.speed_kmh()])
+		var done_b := BigLine.ORIGIN.y - bike.global_position.z > big.line_end - 7.0
+		var ok := done_b and not fell_b and seen.size() == big.jumps.size()
+		if run[1] == 0.0 and run[2] == "":
+			ok = ok and in_win
+		if run[2] != "":
+			ok = ok and absf(rad_to_deg(trick_rot.x)) > 290.0
+		check("big line, %s: top to bottom" % run[0], ok, "lip speeds %s%s" % [", ".join(seen.values()), (", flip %.0f deg" % absf(rad_to_deg(trick_rot.x))) if run[2] != "" else ""])
+	big_trick_jump = ""
 
 	print("RESULT: %s (%d failed)" % ["OK" if fails == 0 else "FAILED", fails])
 	quit(1 if fails else 0)

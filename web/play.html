@@ -87,7 +87,7 @@
 <div id="overlay">
   <div class="card">
     <h1>MTB <span>Dirt Jump</span></h1>
-    <p class="sub">29&Prime; trail bike, 161&nbsp;mm coil rear / 160&nbsp;mm air fork, simulated through the real linkage. Ride the baseplate, pump the rollers, hit the trail (<span class="keys-only">press 2</span><span class="touch-only">tap Trail</span>), or ride the dirt jump park (<span class="keys-only">press 3</span><span class="touch-only">tap Park</span>).</p>
+    <p class="sub">29&Prime; trail bike, 161&nbsp;mm coil rear / 160&nbsp;mm air fork, simulated through the real linkage. Ride the baseplate, pump the rollers, hit the trail (<span class="keys-only">press 2</span><span class="touch-only">tap Trail</span>), or drop into the big slope line (<span class="keys-only">press 3</span><span class="touch-only">tap Big line</span>).</p>
     <div class="bar" aria-hidden="true"><i id="fill"></i></div>
     <div id="status">Loading the engine&hellip;</div>
     <button id="play" type="button" disabled>Ride</button>
@@ -97,7 +97,7 @@
       <dt>Pedal</dt><dd>Hold to pedal (right thumb)</dd>
       <dt>Brake</dt><dd>Hold to brake</dd>
       <dt>Hop</dt><dd>Hold to load the suspension, let go to pop</dd>
-      <dt>Park</dt><dd>Top of the dirt jump park's pro line</dd>
+      <dt>Big line</dt><dd>Top of the big slope line: five huge jumps, just roll in and coast</dd>
       <dt>Trail</dt><dd>Top of the trail: rock garden and tabletop jump</dd>
       <dt>Cam &middot; Reset</dt><dd>Change camera &middot; start over</dd>
     </dl>
@@ -108,7 +108,7 @@
       <dt>&darr; &uarr;</dt><dd>&darr; leans back: W + &darr; is a wheelie, in the air a backflip. &uarr; in the air: frontflip</dd>
       <dt>Space</dt><dd>Hold to load the suspension, release to hop</dd>
       <dt>C</dt><dd>Camera: chase, side view, orbit</dd>
-      <dt>3 &middot; 4</dt><dd>Dirt jump park: pro line &middot; beginner line</dd>
+      <dt>3</dt><dd>Big slope line: five huge jumps down a hill, just roll in and coast</dd>
       <dt>2 &middot; 1</dt><dd>Go to the trail (rock garden + jump) &middot; back to the baseplate</dd>
       <dt>T &middot; R</dt><dd>Slow motion &middot; reset</dd>
     </dl>
@@ -145,7 +145,7 @@
 <script>
   const GODOT_CONFIG = {
     args: [], canvasResizePolicy: 2, ensureCrossOriginIsolationHeaders: false, executable: "index",
-    experimentalVK: false, fileSizes: { "index.pck": 7065168, "index.wasm": 43699190 },
+    experimentalVK: false, fileSizes: { "index.pck": 7065824, "index.wasm": 43699190 },
     focusCanvas: true, gdextensionLibs: []
   };
   const fill = document.getElementById("fill");

@@ -19,7 +19,7 @@ a climb, a rock-garden descent and a tabletop jump with a long landing.
 | Space (hold, release) | A | Load the suspension, then pop a bunny hop |
 | R | Y | Reset |
 | 2 / G, 1 | | Go to the top of the trail, back to the baseplate |
-| 3 / P, 4 | | Dirt jump park: top of the pro line, top of the beginner line |
+| 3 / P | | Top of the big slope line |
 | C | X | Camera: chase → side (best for watching suspension) → orbit |
 | T | Back | Slow motion |
 | Right-drag, mouse wheel | | Look around, zoom |
@@ -121,12 +121,13 @@ flat-out overshoots to the bottom, like a real tabletop.
   lined up with the flight path. The tabletop on the trail has enough air for
   a backflip, frontflip or 360 at a moderate pedal.
 
-## The dirt jump park
+## The big line
 
-`game/scripts/park.gd` builds the park from `design/dirt_jump_blueprint.html`
-behind the rollers (start hill about 86 m out from the spawn): a pro line
-(table, double, step-up, step-down), a beginner line (tables, rollers,
-transfer T1), a flow line (rollers, hip, table), transfer T2 off the first
-table, and three banked berms. One terrain mesh is also the collision.
-Dimensions are tuned so each line rides with pedalling between jumps; the
-rider also pumps the down side of landings and rollers for speed.
+`game/scripts/big_line.gd` builds a 52 m start tower on a 15% hillside with
+five big jumps (7 m to 16 m gaps, 4.6 to 6.8 m of air), a berm and a run-out,
+behind the rollers. Press 3 (or P) to drop in. The design lives in
+`game/assets/big_line.json`, which the blueprint (`design/big_line_blueprint.html`)
+reads too; both build the profile the same way and simulate each jump's speed
+window. The run-ins were tuned by riding the line in the game so that coasting
+arrives in the upper part of every window. Coasting fast, the rider tucks
+(less drag), which is what lets the hill carry him past 50 km/h.

@@ -299,9 +299,12 @@ func _physics_process(dt: float) -> void:
 	else:
 		wheelie = false
 		_air_control(up_b, fwd_b, right_b)
-	# aerodynamic drag (rider + bike CdA ~0.55 m^2)
+	# aerodynamic drag: rider + bike CdA ~0.55 m^2 sitting up and pedalling,
+	# ~0.40 tucked low when coasting at speed (as on a fast run-in)
 	var v := linear_velocity
-	apply_central_force(-0.5 * 1.2 * 0.55 * v.length() * v)
+	var tuck := clampf((v.length() - 8.0) / 4.0, 0.0, 1.0) * (1.0 - in_pedal)
+	var cda := lerpf(0.55, 0.40, tuck)
+	apply_central_force(-0.5 * 1.2 * cda * v.length() * v)
 	_hop(grounded, up_b, fwd_b, com_g, dt)
 	_cranks(dt)
 	_crash_check(up_b, dt)

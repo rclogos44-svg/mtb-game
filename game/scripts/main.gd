@@ -49,9 +49,7 @@ func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("goto_trail"):
 		bike.reset_bike(Trail.start_xform())
 	elif e.is_action_pressed("goto_park"):
-		bike.reset_bike(Park.start_xform("pro"))
-	elif e.is_action_pressed("goto_park_easy"):
-		bike.reset_bike(Park.start_xform("beginner"))
+		bike.reset_bike(get_node("BigLine").start_xform())
 	elif e.is_action_pressed("goto_base"):
 		bike.reset_bike(Transform3D(Basis(), Vector3(0, 0.05, 0)))
 
@@ -92,7 +90,7 @@ func _bind_inputs() -> void:
 		"steer_left": [KEY_A, KEY_LEFT], "steer_right": [KEY_D, KEY_RIGHT],
 		"hop": [KEY_SPACE], "reset": [KEY_R], "camera": [KEY_C], "slowmo": [KEY_T],
 		"goto_trail": [KEY_2, KEY_G], "goto_base": [KEY_1],
-		"goto_park": [KEY_3, KEY_P], "goto_park_easy": [KEY_4],
+		"goto_park": [KEY_3, KEY_P],
 	}
 	for action in keys:
 		if not InputMap.has_action(action):
@@ -149,13 +147,13 @@ func _ground() -> void:
 	body.name = "Ground"
 	var col := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(600, 2, 600)
+	box.size = Vector3(1000, 2, 1000)
 	col.shape = box
 	col.position = Vector3(0, -1, 0)
 	body.add_child(col)
 	var mi := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(600, 600)
+	pm.size = Vector2(1000, 1000)
 	mi.mesh = pm
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scripts/ground.gdshader")
@@ -198,11 +196,11 @@ func _features() -> void:
 	trail.set_script(load("res://scripts/trail.gd"))
 	trail.name = "Trail"
 	add_child(trail)
-	# the dirt jump park from the blueprint, behind the rollers (see park.gd)
-	var park := Node3D.new()
-	park.set_script(load("res://scripts/park.gd"))
-	park.name = "Park"
-	add_child(park)
+	# the big slope line from the blueprint, behind the rollers (see big_line.gd)
+	var big := Node3D.new()
+	big.set_script(load("res://scripts/big_line.gd"))
+	big.name = "BigLine"
+	add_child(big)
 	# kicker up onto a platform with a 0.7 m drop off the end
 	var deck := CSGBox3D.new()
 	deck.size = Vector3(3.5, 0.7, 6.0)

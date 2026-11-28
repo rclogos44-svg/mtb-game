@@ -1,0 +1,314 @@
+<title>Big Line Blueprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* VOICE work: a builder's drawing set for a big-mountain jump line, read before the excavator arrives
+   IDEA a blueprint sheet: white linework on blueprint blue, dimension lines, sheet numbers
+   PICTURE the whole hillside elevation at true scale, every flight path drawn in, then each jump drawn large with its speed window
+   COLOUR blueprint blue ground, white ink, pale cyan for flight paths, coral for gaps and limits
+   TYPE Barlow Condensed for titles and figures + Barlow for text
+   LAYOUT title block with key figures; full-width elevation; plan; five jump detail cards; spec table; riding + build notes. Phone: drawings scroll sideways, cards stack */
+:root{color-scheme:dark;--bg:#0f3a7d;--ink:#eef4ff;--line:#c5dbff;--mute:#a9c3ec;--fly:#8fe3ff;--gap:#ff8a6a;--grid:rgba(197,219,255,.10)}
+*{box-sizing:border-box;min-width:0}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Barlow,system-ui,sans-serif;overflow-x:clip;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px}
+.band{padding-block:clamp(22px,3.5vw,48px);padding-left:max(5vw,16px,env(safe-area-inset-left,0px));padding-right:max(5vw,16px,env(safe-area-inset-right,0px));max-width:1340px;margin:0 auto}
+h1,h2,h3{font-family:"Barlow Condensed",Arial Narrow,sans-serif;font-weight:700;line-height:1.05;letter-spacing:-.01em;margin:0}
+h1{font-size:clamp(34px,5vw,52px)}
+h2{font-size:26px;margin-bottom:10px}
+h3{font-size:20px}
+.head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px 40px;align-items:end;border:1.5px solid var(--line);padding:18px 20px}
+.head p{margin:8px 0 0;color:var(--mute);max-width:62ch}
+.figs{display:grid;grid-template-columns:repeat(4,auto);gap:4px 26px}
+.figs b{display:block;font:700 32px/1 "Barlow Condensed",sans-serif;white-space:nowrap}
+.figs span{font-size:13px;color:var(--mute)}
+.sheet{border:1.5px solid var(--line);border-top:0;padding:14px 20px 18px}
+.cap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 20px;font-size:14px;color:var(--mute);margin-bottom:6px}
+.cap b{color:var(--ink);font:700 18px "Barlow Condensed",sans-serif}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.fig{position:relative;min-width:900px}
+.fig svg{display:block;width:100%;height:100%}
+#elev{height:clamp(230px,24vw,320px)}
+#plan{height:300px}
+svg text{font-family:Barlow,sans-serif;font-size:14px;fill:var(--ink);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+svg .m{fill:var(--mute)}
+svg .big{font:700 18px "Barlow Condensed",sans-serif}
+svg .g{fill:var(--gap)}
+svg .f{fill:var(--fly)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22em),1fr));gap:18px 26px}
+.card{border-top:1.5px solid var(--line);padding-top:8px}
+.card .d{height:190px;position:relative}
+.card .d svg{position:absolute;inset:0;width:100%;height:100%}
+.card dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:6px 0 0;font-size:14px}
+.card dt{color:var(--mute)}
+.card dd{margin:0;font-variant-numeric:tabular-nums}
+.win{display:flex;align-items:center;gap:10px;font:700 22px "Barlow Condensed",sans-serif;margin-top:6px}
+.win span{font:400 13px Barlow,sans-serif;color:var(--mute)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{font-weight:600;text-align:left;color:var(--mute);font-size:13px;border-bottom:1.5px solid var(--line);padding:6px 8px;white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid rgba(197,219,255,.25);white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td.k{font:700 17px "Barlow Condensed",sans-serif}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(15em,1fr));gap:14px 28px;margin:0;padding:0;list-style:none}
+.notes li{border-top:1.5px solid var(--line);padding-top:8px}
+.notes li b{display:block;font:700 18px "Barlow Condensed",sans-serif}
+.small{font-size:13px;color:var(--mute);margin:10px 0 0}
+#err{color:var(--gap)}
+@media(max-width:700px){.head{grid-template-columns:minmax(0,1fr)}.figs{grid-template-columns:repeat(2,auto)}.figs b{font-size:28px}}
+@media(max-width:600px){table{font-size:13px}th,td{padding:6px 4px}.stack thead{display:none}.stack tr{display:grid;padding-block:8px;border-bottom:1px solid rgba(197,219,255,.25)}.stack td{display:flex;justify-content:space-between;gap:12px;border:0;padding:2px 0}.stack td::before{content:attr(data-l);color:var(--mute)}}
+</style>
+
+<div class="band">
+  <header class="head">
+    <div>
+      <h1>Big line blueprint</h1>
+      <p id="lede">Five big jumps down a steep hillside. The slope gives you the speed, so nobody needs to pedal. Each landing is built tall and long so there's a usable speed window. A big berm and a run-out finish the line. Built in the game (press 3); these are the built dimensions.</p>
+      <p id="err"></p>
+    </div>
+    <div class="figs" id="figs"></div>
+  </header>
+
+  <section class="sheet">
+    <div class="cap"><span><b>Sheet 1 &middot; Elevation</b> &middot; dashed: flight at the middle of each speed window</span><span>True scale, heights &times;1.5 &middot; metres</span></div>
+    <div class="scroll"><div class="fig" id="elev"></div></div>
+  </section>
+
+  <section class="sheet">
+    <div class="cap"><span><b>Sheet 2 &middot; Plan</b></span><span>Dashed: foot of the hill &middot; crest 14&nbsp;m wide with 45&deg; sides &middot; riding line 4&nbsp;m &middot; berm radius 10&nbsp;m</span></div>
+    <div class="scroll"><div class="fig" id="plan"></div></div>
+  </section>
+
+  <section class="sheet">
+    <h2>Sheet 3 &middot; The jumps, drawn large</h2>
+    <p class="small" style="margin:0 0 12px">Each drawing shows the flight at the slowest and fastest speed that still lands on the landing. Any slower and you case the landing's face; any faster and you fly past the bottom onto the hill.</p>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section class="sheet">
+    <h2>Specs</h2>
+    <div class="scroll">
+      <table class="stack" id="specs">
+        <thead><tr><th>Jump</th><th class="n">Lip</th><th class="n">Gap</th><th class="n">Lip to knuckle</th><th class="n">Landing</th><th class="n">Speed window</th><th class="n">Air</th><th class="n">Peak height</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="small">Speed window: lip speeds that touch down on the landing between the knuckle and its foot, within 20&deg; of the slope. Worked out by flying the rider over this exact profile at every km/h, not from a formula.</p>
+  </section>
+
+  <section class="sheet">
+    <h2>Riding and building it</h2>
+    <ul class="notes" id="notes"></ul>
+  </section>
+</div>
+
+<script>
+{
+const G = 9.81, rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI, kmh = v => Math.round(v * 3.6);
+
+// ---- the profile, built exactly as the game builds it (park.gd)
+function build(D) {
+  const S = D.slope, H0 = D.hill_top, K = 3;
+  const dk = D.deck, backU = -dk.len - 4;
+  const ground = u => {
+    const y = H0 - S * Math.max(u, 0);
+    let g = y >= K ? y : y <= -K ? 0 : (y + K) ** 2 / (4 * K);
+    if (u < backU) g = Math.max(H0 - (backU - u), 0);                     // back of the hill, 45 deg
+    return g;
+  };
+  const P = [];
+  P.push([backU - H0, 0], [backU, H0], [-dk.len, dk.y], [0, dk.y]);         // hill top, start tower
+  const y1 = ground(dk.rollin);
+  for (let i = 1; i <= 40; i++) {
+    const t = i / 40, h00 = 2 * t ** 3 - 3 * t ** 2 + 1, h01 = -2 * t ** 3 + 3 * t ** 2, h11 = t ** 3 - t ** 2;
+    P.push([dk.rollin * t, h00 * dk.y + h01 * y1 + h11 * dk.rollin * -S]);
+  }
+  let u = dk.rollin;
+  const J = [];
+  for (const src of D.jumps) {
+    const j = Object.assign({}, src);
+    u += j.run; P.push([u, ground(u)]); j.u0 = u;
+    const a0 = -Math.atan(S), th = rad(j.ang);
+    const R = j.h / ((Math.cos(a0) - Math.cos(th)) + S * (Math.sin(th) - Math.sin(a0)));
+    const yb = ground(u);
+    for (let i = 1; i <= 20; i++) { const a = a0 + (th - a0) * i / 20; P.push([u + R * (Math.sin(a) - Math.sin(a0)), yb + R * (Math.cos(a0) - Math.cos(a))]); }
+    [j.lipU, j.lipY] = P[P.length - 1];
+    const back = Math.tan(rad(60));
+    let ub = j.lipU; while (j.lipY - (ub - j.lipU) * back > ground(ub)) ub += 0.05;
+    P.push([ub, ground(ub)]);
+    j.knU = j.lipU + j.gap; j.knY = ground(j.knU) + j.hk;
+    let uf = j.knU; while (j.knY - (j.knU - uf) * back > ground(uf)) uf -= 0.05;
+    P.push([uf, ground(uf)], [j.knU, j.knY], [j.knU + 0.6, j.knY]);
+    const tp = Math.tan(rad(j.land_ang));
+    let ul = j.knU + 0.6; while (j.knY - (ul - j.knU - 0.6) * tp > ground(ul)) ul += 0.05;
+    for (let i = 1; i <= 8; i++) { const uu = j.knU + 0.6 + (ul - j.knU - 0.6) * i / 8; P.push([uu, j.knY - (uu - j.knU - 0.6) * tp]); }
+    // fillet into the hill
+    for (let i = 1; i <= 6; i++) { const uu = ul + i * 0.6; P.push([uu, ground(uu) + Math.max(0, 0.5 * (1 - i / 6)) ** 2]); }
+    j.landEnd = ul; u = ul + 3.6;
+    J.push(j);
+  }
+  const end = u + D.runout;
+  for (let x = u + 4; x <= end; x += 4) P.push([x, ground(x)]);
+  P.push([end, ground(end)]);
+  const at = x => {
+    for (let i = 1; i < P.length; i++) if (P[i][0] >= x) {
+      const [a, ya] = P[i - 1], [b, yb] = P[i];
+      return b === a ? Math.max(ya, yb) : ya + (yb - ya) * (x - a) / (b - a);
+    }
+    return ground(x);
+  };
+  return {P, J, ground, at, end};
+}
+
+// fly a lip speed over the profile; where and how does it touch down?
+function fly(L, j, v) {
+  const th = rad(j.ang), vx = v * Math.cos(th), vy = v * Math.sin(th), pts = [[j.lipU, j.lipY]];
+  for (let t = 0.004; t < 6; t += 0.004) {
+    const x = j.lipU + vx * t, y = j.lipY + vy * t - G * t * t / 2;
+    pts.push([x, y]);
+    if (t > 0.08 && y <= L.at(x)) {
+      const slope = deg(Math.atan2(L.at(x - 0.1) - L.at(x + 0.1), 0.2));
+      const traj = deg(Math.atan2(G * t - vy, vx));
+      const where = x < j.knU - 0.05 ? "case" : x <= j.landEnd ? "land" : "over";
+      return {x, y, t, pts, where, diff: traj - slope};
+    }
+  }
+  return null;
+}
+function windowOf(L, j) {
+  const good = [];
+  for (let k = 15; k <= 90; k++) { const r = fly(L, j, k / 3.6); if (r && r.where === "land" && Math.abs(r.diff) < 20) good.push(k); }
+  if (!good.length) return null;
+  return {lo: good[0], hi: good[good.length - 1], mid: (good[0] + good[good.length - 1]) / 2};
+}
+
+function render(D) {
+  const L = build(D);
+  for (const j of L.J) {
+    j.win = windowOf(L, j);
+    j.mid = j.win ? fly(L, j, j.win.mid / 3.6) : null;
+    j.peak = j.mid ? Math.max(...j.mid.pts.map(p => p[1] - L.at(p[0]))) : 0;
+  }
+  const drop = D.deck.y;
+  const gaps = L.J.map(j => j.gap);
+  document.getElementById("lede").textContent = `Five big jumps down a ${Math.round(D.slope * 100)}% hillside, from a ${D.deck.y} m start tower. The slope gives you the speed, so nobody needs to pedal. Gaps grow from ${Math.min(...gaps)} m to ${Math.max(...gaps)} m, and each landing is built tall and long so there's a usable speed window. A big berm and a run-out finish the line. Built in the game (press 3); these are the built dimensions, with run-ins tuned by riding it.`;
+  const top = Math.max(...L.J.filter(j => j.win).map(j => j.win.hi));
+  document.getElementById("figs").innerHTML = [
+    [L.J.length + " jumps", "on one line"],
+    [Math.max(...L.J.map(j => j.gap)) + " m", "biggest gap"],
+    [drop + " m", "start to bottom"],
+    ["≤ " + top + " km/h", "lip speeds"],
+  ].map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join("");
+
+  // ---- elevation
+  const elev = document.getElementById("elev");
+  const drawElev = () => {
+    const W = elev.clientWidth, H = elev.clientHeight, ml = 20, mr = 20, mt = 26, mb = 40, ex = 1.5;
+    const u0 = L.P[0][0], u1 = L.end;
+    const sx = Math.min((W - ml - mr) / (u1 - u0), (H - mt - mb) / (drop * ex + 6));
+    const X = u => ml + (u - u0) * sx, Y = v => H - mb - v * sx * ex;
+    const d = L.P.map(([u, v], i) => `${i ? "L" : "M"}${X(u).toFixed(1)},${Y(v).toFixed(1)}`).join("");
+    let s = `<defs><pattern id="hz" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="var(--line)" opacity=".4"/></pattern></defs>`;
+    s += `<path d="${d}L${X(u1)},${Y(0)}L${X(u0)},${Y(0)}Z" fill="url(#hz)"/><path d="${d}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/>`;
+    s += `<line x1="${X(u0)}" y1="${Y(0)}" x2="${X(u1)}" y2="${Y(0)}" stroke="var(--line)"/>`;
+    s += `<text x="${X(-D.deck.len / 2)}" y="${Y(D.deck.y) - 10}" text-anchor="middle">start ${D.deck.y} m</text>`;
+    for (const j of L.J) {
+      if (!j.mid) continue;
+      s += `<path d="${j.mid.pts.filter((_, i) => i % 6 === 0).map(([u, v], i) => `${i ? "L" : "M"}${X(u).toFixed(1)},${Y(v).toFixed(1)}`).join("")}" fill="none" stroke="var(--fly)" stroke-width="2" stroke-dasharray="6 5"/>`;
+      const pk = j.mid.pts.reduce((a, b) => b[1] > a[1] ? b : a);
+      s += `<text class="big" x="${X(pk[0])}" y="${Y(pk[1]) - 10}" text-anchor="middle">${j.id}</text>`;
+      s += `<text class="g" x="${X((j.lipU + j.knU) / 2)}" y="${Y(L.ground((j.lipU + j.knU) / 2)) + 20}" text-anchor="middle">${j.gap} m</text>`;
+    }
+    s += `<text class="m" x="${X(u1) - 4}" y="${Y(0) - 8}" text-anchor="end">run-out → berm</text>`;
+    s += `<path d="M${X(u0)},${H - 8}h${20 * sx}" stroke="var(--ink)" stroke-width="2"/><text class="m" x="${X(u0) + 20 * sx + 8}" y="${H - 3}">20 m</text>`;
+    elev.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Elevation of the big line">${s}</svg>`;
+  };
+
+  // ---- plan
+  const plan = document.getElementById("plan");
+  const drawPlan = () => {
+    const W = plan.clientWidth, H = plan.clientHeight;
+    const u0 = L.P[0][0], u1 = L.end + D.berm.r + 4, hw = D.hill_half_width, R = D.berm.r;
+    const wMax = hw + 4 + D.deck.y;
+    const sx = Math.min((W - 90) / (u1 - u0), (H - 20) / (2 * wMax));
+    const X = u => 20 + (u - u0) * sx, Y = y => H / 2 - (y - R) * sx;   // line at y = R, berm turns to y = -R
+    let s = "";
+    // hill footprint: crest band plus shoulders that shrink as the hill gets lower
+    const top = [], bot = [];
+    for (let u = u0; u <= L.end; u += 2) { const h = L.ground(u), w = hw + 1 + h; top.push([u, R + w]); bot.push([u, R - w]); }
+    s += `<path d="M${top.map(([u, y]) => `${X(u)},${Y(y)}`).join("L")}L${bot.reverse().map(([u, y]) => `${X(u)},${Y(y)}`).join("L")}Z" fill="var(--ink)" fill-opacity=".07" stroke="var(--line)" stroke-dasharray="4 5"/>`;
+    s += `<path d="M${X(u0)},${Y(R)}H${X(L.end)}A${R * sx},${R * sx} 0 0 1 ${X(L.end)},${Y(-R)}H${X(L.end - 30)}" fill="none" stroke="var(--line)" stroke-width="${3 * sx}" stroke-opacity=".25"/>`;
+    s += `<path d="M${X(L.end)},${Y(R + 2.2)}A${(R + 2.2) * sx},${(R + 2.2) * sx} 0 0 1 ${X(L.end)},${Y(-R - 2.2)}" fill="none" stroke="var(--ink)" stroke-width="${1.2 * sx}" stroke-opacity=".5"/>`;
+    s += `<rect x="${X(-D.deck.len)}" y="${Y(R + 2)}" width="${D.deck.len * sx}" height="${4 * sx}" fill="var(--ink)" fill-opacity=".85"/>`;
+    s += `<text x="${X(-D.deck.len)}" y="${Y(R + 2) - 8}">start tower</text>`;
+    for (const j of L.J) {
+      s += `<rect x="${X(j.u0)}" y="${Y(R + 1.5)}" width="${(j.lipU - j.u0) * sx}" height="${3 * sx}" fill="var(--ink)" fill-opacity=".65"/>`;
+      s += `<rect x="${X(j.lipU)}" y="${Y(R + 1.5)}" width="${(j.knU - j.lipU) * sx}" height="${3 * sx}" fill="none" stroke="var(--gap)" stroke-dasharray="4 4"/>`;
+      s += `<rect x="${X(j.knU)}" y="${Y(R + 1.5)}" width="${(j.landEnd - j.knU) * sx}" height="${3 * sx}" fill="var(--ink)" fill-opacity=".4"/>`;
+      s += `<text class="big" x="${X((j.u0 + j.landEnd) / 2)}" y="${Y(R + 1.5) - 8}" text-anchor="middle">${j.id}</text>`;
+      if (j.win) s += `<text class="f" x="${X(j.u0 - 4)}" y="${Y(R - 1.5) + 18}" text-anchor="middle">${j.win.lo}–${j.win.hi}</text>`;
+    }
+    s += `<text class="m" x="${X(L.end + R) + 10}" y="${Y(0) + 5}">berm</text><text class="m" x="${X(L.end - 30)}" y="${Y(-R) + 22}">back to the lift / tow path</text>`;
+    s += `<text class="m" x="${X(L.J[0].u0 - 4) + 20}" y="${Y(R - 1.5) + 36}">speed signs, km/h</text>`;
+    plan.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Plan of the big line">${s}</svg>`;
+  };
+
+  // ---- jump cards
+  const cards = document.getElementById("cards");
+  cards.innerHTML = L.J.map(j => `<div class="card"><h3>${j.id} &middot; ${j.name}</h3><div class="d" data-j="${j.id}"></div>
+    <div class="win">${j.win ? j.win.lo + "–" + j.win.hi + " km/h" : "no window"}<span>lip speed that lands it</span></div>
+    <dl><dt>Lip</dt><dd>${j.h} m tall, ${j.ang}°</dd><dt>Gap</dt><dd>${j.gap} m, lip to knuckle</dd>
+    <dt>Landing</dt><dd>knuckle ${j.hk} m above the hill, ${j.land_ang}°, ${(j.landEnd - j.knU).toFixed(1)} m long</dd>
+    <dt>Air</dt><dd>${j.mid ? j.mid.t.toFixed(2) + " s, up to " + j.peak.toFixed(1) + " m above the ground" : "–"}</dd></dl></div>`).join("");
+  const drawCards = () => {
+    for (const el of cards.querySelectorAll(".d")) {
+      const j = L.J.find(q => q.id === el.dataset.j), W = el.clientWidth, H = el.clientHeight;
+      const ua = j.u0 - 2, ub = j.landEnd + 4;
+      const ys = L.P.filter(p => p[0] >= ua && p[0] <= ub).map(p => p[1]);
+      const fl = [j.win && fly(L, j, j.win.lo / 3.6), j.win && fly(L, j, j.win.hi / 3.6)].filter(Boolean);
+      const yTop = Math.max(...ys, ...fl.flatMap(f => f.pts.map(p => p[1]))), yBot = L.ground(ub) - 0.5;
+      const sx = Math.min((W - 20) / (ub - ua), (H - 34) / (yTop - yBot));
+      const X = u => 10 + (u - ua) * sx, Y = v => H - 22 - (v - yBot) * sx;
+      const d = L.P.filter(p => p[0] >= ua - 1 && p[0] <= ub + 1).map(([u, v], i) => `${i ? "L" : "M"}${X(u).toFixed(1)},${Y(v).toFixed(1)}`).join("");
+      let s = `<path d="${d}" fill="none" stroke="var(--ink)" stroke-width="2"/>`;
+      fl.forEach((f, i) => {
+        s += `<path d="${f.pts.filter((_, k) => k % 5 === 0).map(([u, v], k) => `${k ? "L" : "M"}${X(u).toFixed(1)},${Y(v).toFixed(1)}`).join("")}" fill="none" stroke="${i ? "var(--gap)" : "var(--fly)"}" stroke-width="1.8" stroke-dasharray="5 4"/>`;
+      });
+      const a = X(j.lipU), b = X(j.knU), yd = H - 8;
+      s += `<path d="M${a},${yd - 6}V${yd + 2}M${b},${yd - 6}V${yd + 2}M${a},${yd - 2}H${b}" stroke="var(--gap)" fill="none"/><text class="g" x="${(a + b) / 2}" y="${yd - 8}" text-anchor="middle">${j.gap} m</text>`;
+      if (j.win) s += `<text class="f" x="${W - 10}" y="18" text-anchor="end">${j.win.lo} km/h</text><text class="g" x="${W - 10}" y="36" text-anchor="end">${j.win.hi} km/h</text>`;
+      el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${s}</svg>`;
+    }
+  };
+
+  document.querySelector("#specs tbody").innerHTML = L.J.map(j => `<tr><td class="k" data-l="Jump">${j.id} ${j.name}</td>
+    <td class="n" data-l="Lip">${j.h} m @ ${j.ang}°</td><td class="n" data-l="Gap">${j.gap} m</td>
+    <td class="n" data-l="Lip to knuckle">${(j.knY - j.lipY) >= 0 ? "+" : "−"}${Math.abs(j.knY - j.lipY).toFixed(1)} m</td>
+    <td class="n" data-l="Landing">${j.land_ang}°, ${(j.landEnd - j.knU).toFixed(0)} m</td>
+    <td class="n" data-l="Speed window">${j.win ? j.win.lo + "–" + j.win.hi + " km/h" : "–"}</td>
+    <td class="n" data-l="Air">${j.mid ? j.mid.t.toFixed(2) + " s" : "–"}</td>
+    <td class="n" data-l="Peak height">${j.peak.toFixed(1)} m</td></tr>`).join("");
+
+  // dirt: everything above the bare hill
+  let fill = 0;
+  for (let u = L.J[0].u0; u < L.J[L.J.length - 1].landEnd; u += 0.1) fill += Math.max(0, L.at(u) - L.ground(u)) * 0.1;
+  const jumpsDirt = fill * 3.0 * 1.6;
+  document.getElementById("notes").innerHTML = [
+    ["Let the hill do it", `The line falls ${Math.round(D.slope * 100)}% the whole way. Roll in from the ${D.deck.y} m tower and coast: you arrive at every lip inside its window. Coasting, the rider tucks low, which is what lets the hill carry him past 50 km/h.`],
+    ["Speed signs", `A sign before each takeoff shows its window, from ${L.J[0].win ? L.J[0].win.lo + "–" + L.J[0].win.hi : "?"} km/h at ${L.J[0].id} up to ${L.J[L.J.length - 1].win ? L.J[L.J.length - 1].win.lo + "–" + L.J[L.J.length - 1].win.hi : "?"} km/h at ${L.J[L.J.length - 1].id}: the jumps grow as the hill makes you faster.`],
+    ["Landings built for the window", `Each landing stands ${Math.min(...L.J.map(j => j.hk))}–${Math.max(...L.J.map(j => j.hk))} m above the hill at its knuckle and slopes at ${Math.min(...L.J.map(j => j.land_ang))}–${Math.max(...L.J.map(j => j.land_ang))}°. The steeper last two match their steeper lips. Tall and long is what gives a usable window.`],
+    ["Run-ins tuned by riding", `The run-in before each jump was set by riding the line in the game and adjusting until coasting arrives in the upper part of every window (${L.J.map(j => j.id + " " + j.run + " m").join(", ")}). Landing deep keeps your speed; landing on the knuckle scrubs it, and the next jump comes up short.`],
+    ["Casing and overshooting", `Too slow and you hit the face below the knuckle, which hurts. Too fast and you land past the foot, on the ${Math.round(Math.atan(D.slope) * 180 / Math.PI)}° hill: hard, but you ride away. Pedalling the whole way in testing ran a few km/h over most windows and still rode clean.`],
+    ["Tricks", "Each jump gives well over a second in the air, enough for a backflip, a frontflip or a 360. Let go early and the rider spots the landing."],
+    ["Dirt", `About ${Math.round(jumpsDirt)} m³ for the jumps on top of the shaped hillside, ${D.hill_half_width * 2} m wide at the crest with 45° sides. Lips get a clay cap and are packed hard; landings are kept soft.`],
+  ].map(([b, t]) => `<li><b>${b}</b>${t}</li>`).join("");
+
+  const roE = new ResizeObserver(drawElev); roE.observe(elev);
+  const roP = new ResizeObserver(drawPlan); roP.observe(plan);
+  const roC = new ResizeObserver(drawCards); roC.observe(cards);
+}
+
+fetch("big_line.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(render)
+  .catch(e => { document.getElementById("err").textContent = "Couldn't load the design data (" + e.message + "). Reload to try again."; });
+}
+</script>

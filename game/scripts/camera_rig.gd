@@ -64,7 +64,11 @@ func _process(dt: float) -> void:
 		if hv.length() > 1.5:
 			fwd = hv
 	if fwd.length() > 0.1:
-		_heading = _heading.slerp(fwd.normalized(), 1.0 - exp(-4.0 * dt)).normalized()
+		# ease toward the new heading (lerp + normalise: slerp between two almost
+		# equal directions builds a slightly non-unit axis and errors every frame)
+		var nh := _heading.lerp(fwd.normalized(), 1.0 - exp(-4.0 * dt))
+		if nh.length() > 0.01:
+			_heading = nh.normalized()
 	var center := t.origin + Vector3(0, 0.85, 0)
 	var desired: Vector3
 	match mode:
